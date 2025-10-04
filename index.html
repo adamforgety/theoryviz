@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TheoryViz</title>
+    <title>Interactive Piano Theory Trainer</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -33,7 +33,7 @@
             TheoryViz
         </h1>
         <p class="text-center text-gray-600 mb-8">
-            Visualize harmony anywhere.
+            Visualize harmony on your phone or tablet.
         </p>
 
         <!-- Control Panel -->
@@ -80,6 +80,14 @@
         <!-- Piano Keyboard (Now using SVG) -->
         <div id="piano-container" class="keyboard-container overflow-x-scroll pb-4">
             <svg id="piano-keyboard-svg" width="100%" height="200" preserveAspectRatio="xMinYMin slice"></svg>
+        </div>
+        
+        <!-- Current Chord Name Display -->
+        <div class="mt-6 mb-4 text-center">
+            <p class="text-xl font-semibold text-gray-700">Current Chord:</p>
+            <h2 id="current-chord-display" class="text-4xl font-extrabold text-blue-600 mt-1">
+                <!-- Chord name will be displayed here -->
+            </h2>
         </div>
 
         <!-- Chord Buttons -->
@@ -149,6 +157,40 @@
         };
 
         // --- CORE MUSIC THEORY LOGIC ---
+        
+        /**
+         * Determines the standard quality text (Major, minor, diminished) for the current chord.
+         * @returns {string} The formatted chord name (e.g., "C Major", "D minor").
+         */
+        function getChordName() {
+            // 1. Determine the actual root note of the current chord
+            const intervals = state.isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
+            // Get the interval for the current degree (e.g., ii is interval 2)
+            const degreeInterval = intervals[state.currentDegree - 1]; 
+            // Calculate the 0-11 index of the chord's root note
+            const chordRootIndex = (state.currentKeyIndex + degreeInterval) % 12;
+            // Get the name of the chord's root note (e.g., D for the ii chord in C)
+            const chordRootName = KEYS[chordRootIndex]; 
+            
+            // 2. Determine the quality based on Roman numeral case
+            const qualities = state.isMajor ? MAJOR_QUALITIES : MINOR_QUALITIES;
+            const romanNumeral = qualities[state.currentDegree - 1];
+            
+            let qualityText = "";
+            // Check for diminished symbol (°)
+            if (romanNumeral.includes('°')) {
+                qualityText = "diminished";
+            } 
+            // Check for uppercase (Major) or lowercase (minor) Roman numeral
+            else if (romanNumeral === romanNumeral.toUpperCase()) {
+                qualityText = "Major";
+            } else {
+                qualityText = "minor";
+            }
+            
+            // 3. Combine the chord root name and the quality
+            return `${chordRootName} ${qualityText}`;
+        }
 
         function getScalePitchClasses(keyIndex, isMajor) {
             const intervals = isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
@@ -157,7 +199,7 @@
 
         function calculateTriadPitchClasses(keyIndex, isMajor, degree) {
             const scale = getScalePitchClasses(keyIndex, isMajor);
-            const scaleDegreeIndex = degree - 1; // 1-based to 0-based
+            const scaleDegreeIndex = degree - 1; 
             const root = scale[scaleDegreeIndex];
             const third = scale[(scaleDegreeIndex + 2) % 7];
             const fifth = scale[(scaleDegreeIndex + 4) % 7];
@@ -165,9 +207,7 @@
         }
 
         /**
-         * Calculates the 3 specific MIDI notes for the triad.
-         * The tonic (I/i chord) of the selected key will start on the lowest visible octave (C4), 
-         * and all subsequent triads move sequentially up the keyboard.
+         * Calculates the 3 specific MIDI notes for the triad, ensuring sequential movement.
          */
         function calculateSpecificTriadMidiNotes(keyIndex, isMajor, degree) {
             const scaleIntervals = isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
@@ -329,7 +369,7 @@
             
             // --- CONDITIONAL SCROLLING LOGIC ---
             if (state.isCenteringEnabled) {
-                // Centering Mode: Scroll to center the chord's third
+                // Centering is enabled: calculate scroll position to center the chord's third
                 const centerMidi = state.triadMidiNotes.length > 1 ? state.triadMidiNotes[1] : START_MIDI; 
                 
                 let centerScrollX = 0;
@@ -350,29 +390,10 @@
                     pianoContainer.scrollLeft = centerScrollX;
                 });
             } else {
-                // Fixed Mode: Only auto-scroll if the tonic (I/i) is selected, otherwise maintain user scroll.
-                if (state.currentDegree === 1) {
-                    // Align the root of the tonic chord (I or i) to the far left of the viewport.
-                    const rootMidi = state.triadMidiNotes[0]; 
-                    
-                    let targetScrollX = 0;
-                    const rootKeyData = PIANO_KEY_DATA.find(k => k.midi === rootMidi);
-                    
-                    if (rootKeyData) {
-                        // Calculate the X position of the root key's left edge
-                        targetScrollX = getKeyXPosition(rootKeyData.midi);
-                        
-                        // Ensure the scroll position is within valid bounds
-                        const containerWidth = pianoContainer.offsetWidth;
-                        targetScrollX = Math.max(0, targetScrollX);
-                        targetScrollX = Math.min(KEYBOARD_CONFIG.KEYBOARD_WIDTH - containerWidth, targetScrollX);
-                    }
-
-                    requestAnimationFrame(() => {
-                        pianoContainer.scrollLeft = targetScrollX;
-                    });
-                } 
-                // For degrees ii through vii, we do nothing, letting the user's manual scroll position persist.
+                // Centering is disabled: keep the scroll position at the far left (Fixed)
+                requestAnimationFrame(() => {
+                    pianoContainer.scrollLeft = 0;
+                });
             }
         }
         
@@ -416,6 +437,10 @@
                 `;
             }).join('');
         }
+
+        function renderChordName() {
+            document.getElementById('current-chord-display').textContent = getChordName();
+        }
         
         // --- HANDLERS ---
         
@@ -435,6 +460,7 @@
             renderKeySelect();
             renderModeButtons();
             renderChordButtons();
+            renderChordName(); // Display the correct chord name
             drawKeyboard(); 
         }
 
