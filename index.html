@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Piano Theory Trainer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the SVG keyboard container */
+        .keyboard-container {
+            position: relative;
+            height: 220px;
+            margin-top: 20px;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            /* Light gray for contrast against the white keys */
+            background-color: #f3f4f6; 
+            overflow-x: scroll; /* Allows the full keyboard width to be viewed */
+        }
+        
+        /* Highlighting Styles for a consistent look with the buttons */
+        .highlight-transition {
+            transition: fill 0.2s ease;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-50 font-sans p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-10">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-6 text-center">
+            TheoryViz
+        </h1>
+        <p class="text-center text-gray-600 mb-8">
+            Visualize harmony anywhere.
+        </p>
+
+        <!-- Control Panel -->
+        <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4 mb-8 p-4 bg-gray-100 rounded-lg">
+            
+            <!-- Key Selection -->
+            <div class="w-full md:w-1/3">
+                <label for="key-select" class="block text-sm font-medium text-gray-700 mb-1">Root Key</label>
+                <select id="key-select" onchange="handleKeyChange(event.target.value)"
+                        class="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
+                    <!-- Options populated by JS -->
+                </select>
+            </div>
+
+            <!-- Centering Toggle -->
+            <div class="w-full md:w-1/3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Keyboard Scroll</label>
+                <div class="flex items-center justify-between p-3 bg-white border border-gray-300 rounded-lg shadow-sm">
+                    <span class="text-sm font-medium text-gray-600 select-none">Fixed</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="centering-toggle" class="sr-only peer" checked onchange="toggleCentering(event.target.checked)">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                    <span class="text-sm font-medium text-blue-600 select-none">Centering</span>
+                </div>
+            </div>
+
+            <!-- Mode Selection -->
+            <div class="w-full md:w-1/3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Scale Mode</label>
+                <div class="flex space-x-2">
+                    <button id="major-mode-btn" onclick="handleModeChange(true)"
+                            class="flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md">
+                        Major
+                    </button>
+                    <button id="minor-mode-btn" onclick="handleModeChange(false)"
+                            class="flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md">
+                        Minor
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Piano Keyboard (Now using SVG) -->
+        <div id="piano-container" class="keyboard-container overflow-x-scroll pb-4">
+            <svg id="piano-keyboard-svg" width="100%" height="200" preserveAspectRatio="xMinYMin slice"></svg>
+        </div>
+
+        <!-- Chord Buttons -->
+        <div id="chord-buttons-container" class="mt-8 grid grid-cols-4 sm:grid-cols-7 gap-3">
+            <!-- Buttons will be dynamically generated here -->
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS AND MAPPING ---
+        const KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11]; 
+        const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10]; 
+        
+        // Roman Numerals and Qualities (1-based index)
+        const MAJOR_QUALITIES = ["I", "ii", "iii", "IV", "V", "vi", "vii°"];
+        const MINOR_QUALITIES = ["i", "ii°", "III", "iv", "v", "VI", "VII"];
+
+        // MIDI note range for the visual keyboard: C4 (60) to F6 (89) -> 30 keys (3 octaves)
+        const START_MIDI = 60; // C4 (Middle C)
+        const END_MIDI = 89;   // F6
+        
+        // --- SVG KEYBOARD CONFIGURATION (Adapted from the example) ---
+        const KEYBOARD_CONFIG = {
+            TOTAL_KEYS_RANGE: END_MIDI - START_MIDI + 1, // 30 keys
+            WHITE_KEYS_COUNT: 18, 
+            
+            // Virtual width for the SVG canvas 
+            KEYBOARD_WIDTH: 1080, 
+            KEYBOARD_HEIGHT: 200,
+            KEY_Y_START: 10, 
+            
+            WHITE_KEY_HEIGHT: 180,
+            WHITE_KEY_WIDTH: 1080 / 18, // 60
+            
+            BLACK_KEY_HEIGHT: 110,
+            BLACK_KEY_WIDTH: (1080 / 18) * 0.6, // 36
+        };
+
+        const KEY_COLORS = {
+            WHITE: '#ffffff',
+            BLACK: '#1f2937',
+            // Blue colors
+            HIGHLIGHT_WHITE: '#3b82f6', 
+            HIGHLIGHT_BLACK: '#2563eb' 
+        };
+        
+        // Piano Key Structure (for lookup only, not for drawing structure)
+        const PIANO_KEY_DATA = [];
+        for (let i = START_MIDI; i <= END_MIDI; i++) {
+            PIANO_KEY_DATA.push({
+                midi: i,
+                pitchClass: i % 12,
+                name: KEYS[i % 12],
+                isWhite: MAJOR_INTERVALS.includes(i % 12),
+            });
+        }
+
+        // --- STATE ---
+        let state = {
+            currentKeyIndex: 0, // C is default
+            isMajor: true,
+            currentDegree: 1, // I or i
+            triadPitchClasses: [], // Array of 3 pitch classes (0-11)
+            triadMidiNotes: [], // Array of 3 specific MIDI notes
+            isCenteringEnabled: true, // Default to centering for mobile
+        };
+
+        // --- CORE MUSIC THEORY LOGIC ---
+
+        function getScalePitchClasses(keyIndex, isMajor) {
+            const intervals = isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
+            return intervals.map(interval => (keyIndex + interval) % 12);
+        }
+
+        function calculateTriadPitchClasses(keyIndex, isMajor, degree) {
+            const scale = getScalePitchClasses(keyIndex, isMajor);
+            const scaleDegreeIndex = degree - 1; // 1-based to 0-based
+            const root = scale[scaleDegreeIndex];
+            const third = scale[(scaleDegreeIndex + 2) % 7];
+            const fifth = scale[(scaleDegreeIndex + 4) % 7];
+            return [root, third, fifth];
+        }
+
+        /**
+         * Calculates the 3 specific MIDI notes for the triad.
+         * The tonic (I/i chord) of the selected key will start on the lowest visible octave (C4), 
+         * and all subsequent triads move sequentially up the keyboard.
+         */
+        function calculateSpecificTriadMidiNotes(keyIndex, isMajor, degree) {
+            const scaleIntervals = isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
+            const scaleDegreeIndex = degree - 1; 
+
+            // 1. Determine the CHORD ROOT MIDI note
+            // Base MIDI is C4 (60) + the key's index (0 for C, 1 for C#, etc.)
+            const tonicMidiInStartingOctave = START_MIDI + keyIndex; 
+
+            // The root of the current chord moves up the keyboard diatonic-step by diatonic-step.
+            const rootMidi = tonicMidiInStartingOctave + scaleIntervals[scaleDegreeIndex];
+            
+            // 2. Calculate the semitone distance of the 3rd and 5th relative to the CHORD ROOT.
+            const tonicIntervals = [
+                scaleIntervals[scaleDegreeIndex],
+                scaleIntervals[(scaleDegreeIndex + 2) % 7],
+                scaleIntervals[(scaleDegreeIndex + 4) % 7]
+            ];
+            
+            let semitoneOffsets = [0]; 
+
+            let thirdInterval = tonicIntervals[1] - tonicIntervals[0];
+            if (thirdInterval < 0) thirdInterval += 12; // Handle octave wrap
+            semitoneOffsets.push(thirdInterval);
+
+            let fifthInterval = tonicIntervals[2] - tonicIntervals[0];
+            if (fifthInterval < 0) fifthInterval += 12; // Handle octave wrap
+            semitoneOffsets.push(fifthInterval);
+            
+            // 3. Build the final triad MIDI notes
+            const triadMidiNotes = semitoneOffsets.map(offset => rootMidi + offset);
+
+            return triadMidiNotes;
+        }
+
+        // --- SVG RENDERING LOGIC ---
+
+        /**
+         * Calculates the X position for a given absolute MIDI index.
+         */
+        function getKeyXPosition(absoluteIndex) {
+            const noteMod12 = absoluteIndex % 12;
+            const isWhiteKey = [0, 2, 4, 5, 7, 9, 11].includes(noteMod12);
+            
+            const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
+            const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
+
+            let whiteKeyCount = 0;
+            // Count white keys from the start of the visualization range (C4 = 60) up to this key
+            for (let i = START_MIDI; i < absoluteIndex; i++) {
+                if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) whiteKeyCount++;
+            }
+
+            if (isWhiteKey) {
+                return whiteKeyCount * WKW;
+            } else {
+                // Black key position is centered over the boundary between the white key to its left and the white key to its right.
+                return (whiteKeyCount * WKW) - (BKW / 2);
+            }
+        }
+        
+        /**
+         * Draws the entire keyboard using SVG based on the current state.
+         */
+        function drawKeyboard() {
+            const svg = document.getElementById('piano-keyboard-svg');
+            const highlightedMidiNotes = state.triadMidiNotes; 
+            
+            svg.setAttribute('width', `${KEYBOARD_CONFIG.KEYBOARD_WIDTH}px`);
+            svg.setAttribute('viewBox', `0 0 ${KEYBOARD_CONFIG.KEYBOARD_WIDTH} ${KEYBOARD_CONFIG.KEYBOARD_HEIGHT}`);
+            svg.innerHTML = ''; // Clear previous drawing
+
+            const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
+            const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
+            const WKH = KEYBOARD_CONFIG.WHITE_KEY_HEIGHT;
+            const Y_START = KEYBOARD_CONFIG.KEY_Y_START;
+
+            // 1. Draw White Keys first
+            PIANO_KEY_DATA.forEach(key => {
+                if (key.isWhite) {
+                    const isHighlighted = highlightedMidiNotes.includes(key.midi); 
+                    const x = getKeyXPosition(key.midi);
+
+                    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    rect.setAttribute('x', x);
+                    rect.setAttribute('y', Y_START);
+                    rect.setAttribute('width', WKW);
+                    rect.setAttribute('height', WKH);
+                    rect.setAttribute('rx', 4); // Rounded corners
+                    rect.setAttribute('ry', 4);
+                    rect.setAttribute('stroke', '#a1a1aa');
+                    rect.setAttribute('stroke-width', '1');
+                    rect.setAttribute('fill', isHighlighted ? KEY_COLORS.HIGHLIGHT_WHITE : KEY_COLORS.WHITE);
+                    rect.classList.add('highlight-transition'); 
+                    
+                    svg.appendChild(rect);
+
+                    // --- Labeling Logic for White Keys ---
+                    let labelText = null;
+                    let labelFill = '#4b5563'; 
+
+                    if (isHighlighted) {
+                        labelText = key.name;
+                        labelFill = KEY_COLORS.WHITE; 
+                    } else if (key.name === 'C' || key.name === 'F') {
+                        // Octave calculation: (MIDI / 12) - 1. E.g., C4 (60) -> (60/12)-1 = 4
+                        labelText = `${key.name}${Math.floor(key.midi / 12) - 1}`;
+                    }
+
+                    if (labelText) {
+                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        text.setAttribute('x', x + WKW / 2);
+                        text.setAttribute('y', Y_START + WKH - 10);
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('font-size', '14');
+                        text.setAttribute('font-weight', '600');
+                        text.setAttribute('fill', labelFill);
+                        text.textContent = labelText;
+                        svg.appendChild(text);
+                    }
+                }
+            });
+
+            // 2. Draw Black Keys second (to place them on top)
+            PIANO_KEY_DATA.forEach(key => {
+                if (!key.isWhite) {
+                    const isHighlighted = highlightedMidiNotes.includes(key.midi);
+                    const x = getKeyXPosition(key.midi);
+
+                    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    rect.setAttribute('x', x);
+                    rect.setAttribute('y', Y_START);
+                    rect.setAttribute('width', BKW);
+                    rect.setAttribute('height', KEYBOARD_CONFIG.BLACK_KEY_HEIGHT);
+                    rect.setAttribute('rx', 3); 
+                    rect.setAttribute('ry', 3);
+                    rect.setAttribute('stroke', '#000000');
+                    rect.setAttribute('stroke-width', '1');
+                    rect.setAttribute('fill', isHighlighted ? KEY_COLORS.HIGHLIGHT_BLACK : KEY_COLORS.BLACK);
+                    rect.classList.add('highlight-transition'); 
+
+                    svg.appendChild(rect);
+                    
+                    if (isHighlighted) {
+                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        text.setAttribute('x', x + BKW / 2);
+                        text.setAttribute('y', Y_START + KEYBOARD_CONFIG.BLACK_KEY_HEIGHT - 10);
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('font-size', '14');
+                        text.setAttribute('font-weight', '600');
+                        text.setAttribute('fill', KEY_COLORS.WHITE);
+                        text.textContent = key.name;
+                        svg.appendChild(text);
+                    }
+                }
+            });
+            
+            const pianoContainer = document.getElementById('piano-container');
+            
+            // --- CONDITIONAL SCROLLING LOGIC ---
+            if (state.isCenteringEnabled) {
+                // Centering Mode: Scroll to center the chord's third
+                const centerMidi = state.triadMidiNotes.length > 1 ? state.triadMidiNotes[1] : START_MIDI; 
+                
+                let centerScrollX = 0;
+                const centerKeyData = PIANO_KEY_DATA.find(k => k.midi === centerMidi);
+                
+                if (centerKeyData) {
+                    const centerKeyX = getKeyXPosition(centerKeyData.midi);
+                    const containerWidth = pianoContainer.offsetWidth;
+                    
+                    const keyWidth = centerKeyData.isWhite ? WKW : BKW;
+                    centerScrollX = centerKeyX - (containerWidth / 2) + (keyWidth / 2);
+
+                    centerScrollX = Math.max(0, centerScrollX);
+                    centerScrollX = Math.min(KEYBOARD_CONFIG.KEYBOARD_WIDTH - containerWidth, centerScrollX);
+                }
+                
+                requestAnimationFrame(() => {
+                    pianoContainer.scrollLeft = centerScrollX;
+                });
+            } else {
+                // Fixed Mode: Only auto-scroll if the tonic (I/i) is selected, otherwise maintain user scroll.
+                if (state.currentDegree === 1) {
+                    // Align the root of the tonic chord (I or i) to the far left of the viewport.
+                    const rootMidi = state.triadMidiNotes[0]; 
+                    
+                    let targetScrollX = 0;
+                    const rootKeyData = PIANO_KEY_DATA.find(k => k.midi === rootMidi);
+                    
+                    if (rootKeyData) {
+                        // Calculate the X position of the root key's left edge
+                        targetScrollX = getKeyXPosition(rootKeyData.midi);
+                        
+                        // Ensure the scroll position is within valid bounds
+                        const containerWidth = pianoContainer.offsetWidth;
+                        targetScrollX = Math.max(0, targetScrollX);
+                        targetScrollX = Math.min(KEYBOARD_CONFIG.KEYBOARD_WIDTH - containerWidth, targetScrollX);
+                    }
+
+                    requestAnimationFrame(() => {
+                        pianoContainer.scrollLeft = targetScrollX;
+                    });
+                } 
+                // For degrees ii through vii, we do nothing, letting the user's manual scroll position persist.
+            }
+        }
+        
+        function renderKeySelect() {
+            const select = document.getElementById('key-select');
+            select.innerHTML = KEYS.map((key, index) => 
+                `<option value="${index}" ${index === state.currentKeyIndex ? 'selected' : ''}>${key}</option>`
+            ).join('');
+        }
+        
+        function renderModeButtons() {
+            const majorBtn = document.getElementById('major-mode-btn');
+            const minorBtn = document.getElementById('minor-mode-btn');
+
+            if (state.isMajor) {
+                majorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-blue-500 text-white hover:bg-blue-600';
+                minorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-white text-gray-700 hover:bg-gray-100 border border-gray-300';
+            } else {
+                majorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-white text-gray-700 hover:bg-gray-100 border border-gray-300';
+                minorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-blue-500 text-white hover:bg-blue-600';
+            }
+        }
+
+        function renderChordButtons() {
+            const container = document.getElementById('chord-buttons-container');
+            const qualities = state.isMajor ? MAJOR_QUALITIES : MINOR_QUALITIES;
+            
+            container.innerHTML = qualities.map((quality, index) => {
+                const degree = index + 1;
+                const isActive = degree === state.currentDegree;
+                
+                return `
+                    <button onclick="handleDegreeChange(${degree})"
+                            class="py-3 px-2 rounded-lg font-extrabold text-lg transition duration-200 shadow-lg 
+                            ${isActive 
+                                ? 'bg-blue-600 text-white ring-4 ring-blue-300 transform scale-105' 
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }">
+                        ${quality}
+                    </button>
+                `;
+            }).join('');
+        }
+        
+        // --- HANDLERS ---
+        
+        function updateUI() {
+            state.triadPitchClasses = calculateTriadPitchClasses(
+                state.currentKeyIndex, 
+                state.isMajor, 
+                state.currentDegree
+            );
+            
+            state.triadMidiNotes = calculateSpecificTriadMidiNotes(
+                state.currentKeyIndex, 
+                state.isMajor, 
+                state.currentDegree
+            );
+            
+            renderKeySelect();
+            renderModeButtons();
+            renderChordButtons();
+            drawKeyboard(); 
+        }
+
+        function handleKeyChange(keyIndex) {
+            state.currentKeyIndex = parseInt(keyIndex);
+            state.currentDegree = 1; 
+            updateUI();
+        }
+
+        function handleModeChange(isMajor) {
+            state.isMajor = isMajor;
+            state.currentDegree = 1; 
+            updateUI();
+        }
+
+        function handleDegreeChange(degree) {
+            state.currentDegree = degree;
+            updateUI();
+        }
+        
+        function toggleCentering(checked) {
+            state.isCenteringEnabled = checked;
+            drawKeyboard();
+        }
+
+
+        // --- INITIALIZATION ---
+        
+        window.onload = () => {
+             // Re-initialize PIANO_KEY_DATA with the new MIDI range
+             PIANO_KEY_DATA.length = 0;
+             for (let i = START_MIDI; i <= END_MIDI; i++) {
+                 PIANO_KEY_DATA.push({
+                     midi: i,
+                     pitchClass: i % 12,
+                     name: KEYS[i % 12],
+                     isWhite: MAJOR_INTERVALS.includes(i % 12),
+                 });
+             }
+             updateUI();
+        };
+
+        window.addEventListener('resize', updateUI); 
+        
+    </script>
+</body>
+</html>
