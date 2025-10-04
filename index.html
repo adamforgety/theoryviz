@@ -73,39 +73,30 @@
 </head>
 <body class="bg-gray-50 font-sans p-4 md:p-8">
 
-    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-10">
+    <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-10">
         <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-6 text-center">
             TheoryViz
         </h1>
         <p class="text-center text-gray-600 mb-8">
-            Visualize harmony and melody.
+            Visualize harmony anywhere!
         </p>
 
-        <!-- Visualization Mode Selector -->
-        <div class="flex justify-center space-x-4 mb-6">
-            <button id="mode-chord-btn" onclick="handleVisualizationModeChange('chord')"
-                    class="py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3">
-                Chord View (Triads)
-            </button>
-            <button id="mode-scale-btn" onclick="handleVisualizationModeChange('scale')"
-                    class="py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3">
-                Scale View (Single Note)
-            </button>
-        </div>
-        
-        <!-- Control Panel -->
-        <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4 mb-8 p-4 bg-gray-100 rounded-lg">
-            
-            <!-- Key Selection -->
-            <div class="w-full md:w-1/3">
-                <label for="key-select" class="block text-sm font-medium text-gray-700 mb-1">Root Key</label>
-                <select id="key-select" onchange="handleKeyChange(event.target.value)"
-                        class="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
-                    <!-- Options populated by JS -->
-                </select>
+        <!-- Mode Selector and Keyboard Centering Toggle (Combined Row) -->
+        <div class="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6">
+
+            <!-- Buttons Group (Takes up more space on md+) -->
+            <div class="flex space-x-4 w-full md:w-2/3">
+                <button id="mode-chord-btn" onclick="handleVisualizationModeChange('chord')"
+                        class="py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2">
+                    Chord View (Diatonic Triads)
+                </button>
+                <button id="mode-scale-btn" onclick="handleVisualizationModeChange('scale')"
+                        class="py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2">
+                    Scale View (Single Note)
+                </button>
             </div>
 
-            <!-- Centering Toggle -->
+            <!-- Centering Toggle (Takes up less space on md+) -->
             <div class="w-full md:w-1/3">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Keyboard Scroll</label>
                 <div class="flex items-center justify-between p-3 bg-white border border-gray-300 rounded-lg shadow-sm">
@@ -117,36 +108,41 @@
                     <span class="text-sm font-medium text-blue-600 select-none">Centering</span>
                 </div>
             </div>
-
-            <!-- Mode Selection -->
-            <div class="w-full md:w-1/3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Scale Mode</label>
-                <div class="flex space-x-2">
-                    <button id="major-mode-btn" onclick="handleModeChange(true)"
-                            class="flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md">
-                        Major
-                    </button>
-                    <button id="minor-mode-btn" onclick="handleModeChange(false)"
-                            class="flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md">
-                        Minor
-                    </button>
+        </div>
+        
+        <!-- Control Panel (2x2 grid style) -->
+        <div class="p-4 bg-gray-100 rounded-lg mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+                <!-- Key Selection -->
+                <div class="w-full">
+                    <label for="key-select" class="block text-sm font-medium text-gray-700 mb-1">Root Key</label>
+                    <select id="key-select" onchange="handleKeyChange(event.target.value)"
+                            class="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
+                        <!-- Options populated by JS -->
+                    </select>
                 </div>
+
+                <!-- Mode Selection (Type) -->
+                <div class="w-full">
+                    <label for="mode-select" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                    <select id="mode-select" onchange="handleModeChange(event.target.value)"
+                            class="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
+                        <!-- Options populated by JS -->
+                    </select>
+                </div>
+
             </div>
         </div>
 
         <!-- Scale Structure Visualization -->
         <div class="mb-8 p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
             <h3 class="text-lg font-bold text-gray-700 mb-3 text-center">Scale Structure: Whole/Half Steps</h3>
-            <div id="scale-structure-container" class="flex justify-center items-center space-x-2 flex-wrap">
+            <div id="scale-structure-container" class="flex justify-center items-center space-x-2 flex-wrap overflow-x-auto pb-2">
                 <!-- Scale steps will be rendered here -->
             </div>
         </div>
 
-        <!-- Piano Keyboard (Now using SVG) -->
-        <div id="piano-container" class="keyboard-container overflow-x-scroll pb-4">
-            <svg id="piano-keyboard-svg" width="100%" height="200" preserveAspectRatio="xMinYMin slice"></svg>
-        </div>
-        
         <!-- Current Chord/Note Name Display -->
         <div class="mt-6 mb-4 text-center">
             <p class="text-xl font-semibold text-gray-700">Current Highlight:</p>
@@ -159,158 +155,197 @@
         <div id="chord-buttons-container" class="mt-8 grid grid-cols-4 sm:grid-cols-7 gap-3">
             <!-- Buttons will be dynamically generated here -->
         </div>
+
+        <!-- Piano Keyboard (Now using SVG) -->
+        <div id="piano-container" class="keyboard-container overflow-x-scroll pb-4">
+            <svg id="piano-keyboard-svg" width="100%" height="200" preserveAspectRatio="xMinYMin slice"></svg>
+        </div>
+        
     </div>
 
     <script>
         // --- CONSTANTS AND MAPPING ---
         const KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-        const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
-        const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
+        const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11]; // Used only for initial key setup
         
-        // Whole (W = 2 semitones) and Half (H = 1 semitone) step patterns, starting after the root
-        const MAJOR_STEPS = ["W", "W", "H", "W", "W", "W", "H"]; // W-W-H-W-W-W-H (7 steps, 8 notes)
-        const MINOR_STEPS = ["W", "H", "W", "W", "H", "W", "W"]; // W-H-W-W-H-W-W (7 steps, 8 notes)
-
-        // Roman Numerals and Qualities (1-based index)
-        const MAJOR_QUALITIES = ["I", "ii", "iii", "IV", "V", "vi", "vii°"];
-        const MINOR_QUALITIES = ["i", "ii°", "III", "iv", "v", "VI", "VII"];
-
+        // Simplified scale data for Triad visualization
+        const SCALE_MODES = {
+            'major': {
+                name: 'Ionian (Major)',
+                intervals: [0, 2, 4, 5, 7, 9, 11],
+                steps: ["W", "W", "H", "W", "W", "W", "H"],
+                // Qualities now represent the root triad quality for simplicity
+                triadQualities: ["Maj", "min", "min", "Maj", "Maj", "min", "dim"], 
+                qualities: ["I", "ii", "iii", "IV", "V", "vi", "vii°"], // Roman Numerals for display
+                chordSteps: [0, 2, 4], // Root, 3rd, 5th
+                degrees: 7,
+                isDiatonic: true
+            },
+            'natural_minor': {
+                name: 'Aeolian (Natural Minor)',
+                intervals: [0, 2, 3, 5, 7, 8, 10],
+                steps: ["W", "H", "W", "W", "H", "W", "W"],
+                triadQualities: ["min", "dim", "Maj", "min", "min", "Maj", "Maj"],
+                qualities: ["i", "ii°", "III", "iv", "v", "VI", "VII"],
+                chordSteps: [0, 2, 4],
+                degrees: 7,
+                isDiatonic: true
+            },
+            'harmonic_minor': {
+                name: 'Harmonic Minor',
+                intervals: [0, 2, 3, 5, 7, 8, 11], 
+                steps: ["W", "H", "W", "W", "H", "1.5", "H"], 
+                triadQualities: ["min", "dim", "Aug", "min", "Maj", "Maj", "dim"], // V is Maj triad in harmonic minor
+                qualities: ["i", "ii°", "III+", "iv", "V", "VI", "vii°"],
+                chordSteps: [0, 2, 4],
+                degrees: 7,
+                isDiatonic: true
+            },
+            'major_pentatonic': {
+                name: 'Major Pentatonic',
+                intervals: [0, 2, 4, 7, 9],
+                steps: ["W", "W", "1.5", "W", "1.5"], 
+                triadQualities: ["", "", "", "", ""], 
+                qualities: ["1", "2", "3", "4", "5"],
+                chordSteps: [0], // Only highlight root note for non-diatonic scales
+                degrees: 5,
+                isDiatonic: false
+            },
+            'minor_pentatonic': {
+                name: 'Minor Pentatonic',
+                intervals: [0, 3, 5, 7, 10],
+                steps: ["1.5", "W", "W", "1.5", "W"],
+                triadQualities: ["", "", "", "", ""],
+                qualities: ["1", "2", "3", "4", "5"],
+                chordSteps: [0],
+                degrees: 5,
+                isDiatonic: false
+            }
+        };
+        
         // MIDI note range for the visual keyboard: C4 (60) to F6 (89) -> 30 keys (3 octaves)
         const START_MIDI = 60; // C4 (Middle C)
         const END_MIDI = 89;   // F6
         
-        // --- SVG KEYBOARD CONFIGURATION (Adapted from the example) ---
+        // --- SVG KEYBOARD CONFIGURATION ---
         const KEYBOARD_CONFIG = {
-            TOTAL_KEYS_RANGE: END_MIDI - START_MIDI + 1, // 30 keys
+            TOTAL_KEYS_RANGE: END_MIDI - START_MIDI + 1, 
             WHITE_KEYS_COUNT: 18,
-            
-            // Virtual width for the SVG canvas 
             KEYBOARD_WIDTH: 1080,
             KEYBOARD_HEIGHT: 200,
             KEY_Y_START: 10,
-            
             WHITE_KEY_HEIGHT: 180,
-            WHITE_KEY_WIDTH: 1080 / 18, // 60
-            
+            WHITE_KEY_WIDTH: 1080 / 18, 
             BLACK_KEY_HEIGHT: 110,
-            BLACK_KEY_WIDTH: (1080 / 18) * 0.6, // 36
+            BLACK_KEY_WIDTH: (1080 / 18) * 0.6, 
         };
 
         const KEY_COLORS = {
             WHITE: '#ffffff',
             BLACK: '#1f2937',
-            // Blue colors
             HIGHLIGHT_WHITE: '#3b82f6',
             HIGHLIGHT_BLACK: '#2563eb'
         };
         
-        // Piano Key Structure (for lookup only, not for drawing structure)
         const PIANO_KEY_DATA = [];
         
 
         // --- STATE ---
         let state = {
             currentKeyIndex: 0, // C is default
-            isMajor: true,
-            currentDegree: 1, // I or i
-            highlightedPitchClasses: [], // Array of highlighted pitch classes (0-11)
-            highlightedMidiNotes: [], // Array of specific MIDI notes
-            isCenteringEnabled: true, // Default to centering for mobile
+            currentModeId: 'major', 
+            currentDegree: 1, 
+            highlightedPitchClasses: [], 
+            highlightedMidiNotes: [], 
+            isCenteringEnabled: true, 
             visualizationMode: 'chord' // 'chord' or 'scale'
         };
 
         // --- CORE MUSIC THEORY LOGIC ---
         
+        function getCurrentMode() {
+            return SCALE_MODES[state.currentModeId];
+        }
+
         /**
          * Gets the display name for the current highlight (Chord or Single Note).
          */
         function getHighlightName() {
-            // 1. Determine the actual root note of the current highlight
-            const intervals = state.isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
+            const mode = getCurrentMode();
+            const intervals = mode.intervals;
+            const qualities = mode.qualities;
+            const triadQualities = mode.triadQualities;
+
             const degreeInterval = intervals[state.currentDegree - 1]; 
             const highlightRootIndex = (state.currentKeyIndex + degreeInterval) % 12;
             const highlightRootName = KEYS[highlightRootIndex]; 
             
+            const romanNumeral = qualities[state.currentDegree - 1];
+            
             if (state.visualizationMode === 'scale') {
-                const qualities = state.isMajor ? MAJOR_QUALITIES : MINOR_QUALITIES;
-                const romanNumeral = qualities[state.currentDegree - 1];
                 return `${highlightRootName} (${romanNumeral} Note)`;
             }
 
-            // --- Chord Logic (existing) ---
-            const qualities = state.isMajor ? MAJOR_QUALITIES : MINOR_QUALITIES;
-            const romanNumeral = qualities[state.currentDegree - 1];
-            
-            let qualityText = "";
-            if (romanNumeral.includes('°')) {
-                qualityText = "diminished";
-            } 
-            else if (romanNumeral === romanNumeral.toUpperCase()) {
-                if (state.isMajor && state.currentDegree === 5) {
-                    qualityText = "Dominant"; 
-                } else {
-                    qualityText = "Major";
-                }
-            } else {
-                qualityText = "minor";
+            // --- Triad Logic (Root Position Only) ---
+            if (!mode.isDiatonic || mode.degrees < 7) {
+                 // For pentatonic, simplify the display
+                 return `${mode.name} - ${romanNumeral} Note`;
             }
             
-            return `${highlightRootName} ${qualityText}`;
-        }
-
-        function getScalePitchClasses(keyIndex, isMajor) {
-            const intervals = isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
-            return intervals.map(interval => (keyIndex + interval) % 12);
-        }
-
-        /**
-         * Calculates the 3 pitch classes for the current triad. Used in Chord View.
-         */
-        function calculateTriadPitchClasses(keyIndex, isMajor, degree) {
-            const scale = getScalePitchClasses(keyIndex, isMajor);
-            const scaleDegreeIndex = degree - 1; 
-            const root = scale[scaleDegreeIndex];
-            const third = scale[(scaleDegreeIndex + 2) % 7];
-            const fifth = scale[(scaleDegreeIndex + 4) % 7];
-            return [root, third, fifth];
+            const qualityText = triadQualities[state.currentDegree - 1];
+            
+            // Format for Diatonic 7-note scales: C Major Triad (Root Position)
+            return `${highlightRootName} ${qualityText} Triad (Root Position)`;
         }
 
         /**
-         * Calculates the 3 specific MIDI notes for the triad. Used in Chord View.
+         * Calculates the specific MIDI notes for the selected chord (always triad, always root position).
          */
-        function calculateSpecificTriadMidiNotes(keyIndex, isMajor, degree) {
-            const scaleIntervals = isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
+        function calculateChordMidiNotes(keyIndex, degree) {
+            const mode = getCurrentMode();
+            const scaleIntervals = mode.intervals;
             const scaleDegreeIndex = degree - 1; 
-
             const tonicMidiInStartingOctave = 60; 
-            const rootMidi = tonicMidiInStartingOctave + keyIndex + scaleIntervals[scaleDegreeIndex];
-            
-            const tonicIntervals = [
-                scaleIntervals[scaleDegreeIndex],
-                scaleIntervals[(scaleDegreeIndex + 2) % 7],
-                scaleIntervals[(scaleDegreeIndex + 4) % 7]
-            ];
-            
-            let semitoneOffsets = [0]; 
 
-            let thirdInterval = tonicIntervals[1] - tonicIntervals[0];
-            if (thirdInterval < 0) thirdInterval += 12; 
-            semitoneOffsets.push(thirdInterval);
-
-            let fifthInterval = tonicIntervals[2] - tonicIntervals[0];
-            if (fifthInterval < 0) fifthInterval += 12; 
-            semitoneOffsets.push(fifthInterval);
+            if (!mode.isDiatonic || mode.degrees < 7) {
+                 // For non-diatonic/pentatonic scales, only return the root note of the degree
+                 return calculateSingleScaleMidiNote(keyIndex, degree);
+            }
             
-            const triadMidiNotes = semitoneOffsets.map(offset => rootMidi + offset);
+            // 1. Determine the component scale degrees (0-based) for the chord (R, 3rd, 5th)
+            const stepsInChord = mode.chordSteps;
+            
+            // 2. Calculate the base MIDI notes (Root Position, all in the lowest octave)
+            let baseMidiNotes = [];
+            
+            // Determine the starting octave root MIDI (e.g., C4 for C Ionian)
+            const rootIntervalFromTonic = scaleIntervals[scaleDegreeIndex];
+            const lowestRootMidi = tonicMidiInStartingOctave + keyIndex + rootIntervalFromTonic;
+            
+            for (let step of stepsInChord) {
+                const stepIndex = (scaleDegreeIndex + step) % mode.degrees;
+                const intervalFromTonic = scaleIntervals[stepIndex];
+                
+                // Calculate semitone distance from the *current chord's root*
+                let semitoneOffset = intervalFromTonic - rootIntervalFromTonic;
+                if (semitoneOffset < 0) semitoneOffset += 12; 
+                
+                // Add note to the base array (lowest octave)
+                baseMidiNotes.push(lowestRootMidi + semitoneOffset);
+            }
+            
+            // Sort to ensure the lowest note is always first
+            baseMidiNotes.sort((a, b) => a - b);
 
-            return triadMidiNotes.filter(midi => midi >= START_MIDI && midi <= END_MIDI);
+            // 3. Filter to the visible keyboard range (no inversion needed)
+            return baseMidiNotes.filter(midi => midi >= START_MIDI && midi <= END_MIDI);
         }
 
         /**
          * Calculates the specific MIDI note for the root of the selected scale degree. Used in Scale View.
          */
-        function calculateSingleScaleMidiNote(keyIndex, isMajor, degree) {
-            const scaleIntervals = isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
+        function calculateSingleScaleMidiNote(keyIndex, degree) {
+            const scaleIntervals = getCurrentMode().intervals;
             const scaleDegreeIndex = degree - 1; 
 
             const tonicMidiInStartingOctave = 60; 
@@ -321,8 +356,8 @@
             // Return an array with a single note.
             return [rootMidi].filter(midi => midi >= START_MIDI && midi <= END_MIDI);
         }
-
-        // --- RENDERING FUNCTIONS ---
+        
+        // --- RENDERING FUNCTIONS (UNCHANGED) ---
         
         /**
          * Calculates the 0-based index of a white key, counting from START_MIDI (C4).
@@ -330,7 +365,6 @@
         function getWhiteKeyIndex(midi) {
             let whiteKeyIndex = 0;
             for (let i = START_MIDI; i < midi; i++) {
-                // Check if the pitch class is a white key note
                 if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) {
                     whiteKeyIndex++;
                 }
@@ -352,23 +386,18 @@
             if (isWhiteKey) {
                 return whiteKeyIndex * WKW;
             } else {
-                // For a black key, use the white key index to its left (midi - 1)
                 const leftWhiteKeyIndex = getWhiteKeyIndex(midi - 1);
-                // Calculate the position: start of the left white key + offset
                 return (leftWhiteKeyIndex * WKW) + (WKW * 0.5 - BKW * 0.5); 
             }
         }
         
-        /**
-         * Draws the entire keyboard using SVG based on the current state.
-         */
         function drawKeyboard() {
             const svg = document.getElementById('piano-keyboard-svg');
-            const highlightedMidiNotes = state.highlightedMidiNotes; // Use new state variable
+            const highlightedMidiNotes = state.highlightedMidiNotes; 
             
             svg.setAttribute('width', `${KEYBOARD_CONFIG.KEYBOARD_WIDTH}px`);
             svg.setAttribute('viewBox', `0 0 ${KEYBOARD_CONFIG.KEYBOARD_WIDTH} ${KEYBOARD_CONFIG.KEYBOARD_HEIGHT}`);
-            svg.innerHTML = ''; // Clear previous drawing
+            svg.innerHTML = ''; 
 
             const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
             const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
@@ -388,23 +417,20 @@
                     rect.setAttribute('height', WKH);
                     rect.setAttribute('rx', 4); 
                     rect.setAttribute('ry', 4);
-                    rect.setAttribute('stroke', '#a1a1aa');
+                    rect.setAttribute('stroke', '#a1a1ae');
                     rect.setAttribute('stroke-width', '1');
                     rect.setAttribute('fill', isHighlighted ? KEY_COLORS.HIGHLIGHT_WHITE : KEY_COLORS.WHITE);
                     rect.classList.add('highlight-transition'); 
                     
                     svg.appendChild(rect);
 
-                    // --- Labeling Logic for White Keys (Updated to show key name on all highlighted white keys) ---
+                    // --- Labeling Logic for White Keys ---
                     let labelText = null;
                     let labelFill = isHighlighted ? KEY_COLORS.WHITE : '#4b5563'; 
 
                     if (isHighlighted) {
-                         // In both Scale View and Chord View, label the highlighted note
                          labelText = key.name;
                     } else if (key.name === 'C' || key.name === 'F') {
-                        // Show octave markers for unhighlighted C and F
-                        // Octave calculation: (MIDI / 12) - 1. E.g., C4 (60) -> (60/12)-1 = 4
                         labelText = `${key.name}${Math.floor(key.midi / 12) - 1}`;
                     }
 
@@ -427,7 +453,7 @@
                 if (!key.isWhite) {
                     const isHighlighted = highlightedMidiNotes.includes(key.midi);
                     
-                    const x = getKeyXPosition(key.midi); // Use the unified position function
+                    const x = getKeyXPosition(key.midi); 
 
                     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                     rect.setAttribute('x', x);
@@ -443,7 +469,7 @@
 
                     svg.appendChild(rect);
                     
-                    // Black Key Labeling: Shows name if highlighted (already correct)
+                    // Black Key Labeling: Shows name if highlighted 
                     if (isHighlighted) {
                         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                         text.setAttribute('x', x + BKW / 2);
@@ -462,7 +488,6 @@
             
             // --- CONDITIONAL SCROLLING LOGIC ---
             if (state.isCenteringEnabled && state.highlightedMidiNotes.length > 0) {
-                // Centering is enabled: calculate scroll position to center the chord's root (first note)
                 const centerMidi = state.highlightedMidiNotes[0]; 
                 
                 let centerScrollX = 0;
@@ -476,7 +501,6 @@
                     centerScrollX = centerKeyX - (containerWidth / 2) + (keyWidth / 2);
 
                     centerScrollX = Math.max(0, centerScrollX);
-                    // Prevent scrolling past the far right
                     centerScrollX = Math.min(KEYBOARD_CONFIG.KEYBOARD_WIDTH - containerWidth, centerScrollX);
                 }
                 
@@ -484,98 +508,91 @@
                     pianoContainer.scrollLeft = centerScrollX;
                 });
             } else if (!state.isCenteringEnabled) {
-                // Centering is disabled: keep the scroll position at the far left (Fixed)
                 requestAnimationFrame(() => {
                     pianoContainer.scrollLeft = 0;
                 });
             }
         }
         
-        /**
-         * Renders the whole-step/half-step diagram with dynamic highlighting.
-         * This version ensures the entire scale, including the final half-step and the octave note, is displayed.
-         */
         function renderScaleStructure() {
             const container = document.getElementById('scale-structure-container');
-            const scaleSteps = state.isMajor ? MAJOR_STEPS : MINOR_STEPS;
-            const scaleIntervals = state.isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
+            const mode = getCurrentMode();
+            const scaleSteps = mode.steps;
+            const scaleIntervals = mode.intervals;
+            const qualities = mode.qualities;
             const currentDegree = state.currentDegree;
             const isScaleView = state.visualizationMode === 'scale';
             
-            // Determine active class for the Tonic (Degree 1)
-            const tonicActiveClass = currentDegree === 1 && isScaleView 
+            const tonicActiveClass = (currentDegree === 1 && isScaleView) || (currentDegree === 1 && state.visualizationMode === 'chord')
                 ? 'note-block-active' 
                 : 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-300';
             
-            // Start with the tonic (Root Note)
             let html = `
-                <div class="flex items-center space-x-2 my-1">
+                <div class="flex items-center space-x-2 my-1 overflow-x-auto pb-2">
                     <span class="step-block text-lg ${tonicActiveClass}">
                         ${KEYS[state.currentKeyIndex]}
                     </span>
             `;
             
-            // Add the steps (W or H) between the scale degrees
-            // The loop runs for all 7 steps (i=0 to 6), resulting in 7 steps and the 8th note (octave).
             for (let i = 0; i < scaleSteps.length; i++) { 
                 const step = scaleSteps[i];
-                const degree = i + 2; // Starts from the 2nd degree
-                const quality = state.isMajor ? MAJOR_QUALITIES[i + 1] : MINOR_QUALITIES[i + 1];
-
-                // Calculate the next pitch class
-                // Use (i + 1) % 7 to get the index of the next interval in the scaleIntervals array
-                const nextIntervalIndex = (i + 1) % 7; 
+                const degree = i + 2; 
+                const qualityDisplay = qualities[(i + 1) % qualities.length]; 
+                
+                const nextIntervalIndex = (i + 1) % mode.degrees; 
                 const nextPitchClass = (state.currentKeyIndex + scaleIntervals[nextIntervalIndex]);
                 
-                // Degree 8 is the octave, which is visually reached by the last step (index 6)
                 const isOctave = i === scaleSteps.length - 1; 
 
-                // Determine highlighting for the Step Block
-                // Step is highlighted if it leads TO the selected degree, OR if it's the last step and degree 1 (octave) is selected
                 const isStepHighlighted = isScaleView && 
                                         ((degree === currentDegree) || (isOctave && currentDegree === 1));
 
-                // Determine highlighting for the Note Block
-                // Note is highlighted if it IS the selected degree, OR if it's the octave and degree 1 is selected
-                const isNoteHighlighted = isScaleView && (degree === currentDegree || (isOctave && currentDegree === 1));
+                const isNoteHighlighted = (isScaleView || state.visualizationMode === 'chord') && 
+                                          (degree === currentDegree || (isOctave && currentDegree === 1));
 
-
-                // Step Block (W or H) Styling
-                let stepColorClass = step === 'W' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800';
+                // Step Block (W, H, or 1.5) Styling
+                let stepColorClass;
+                if (step === 'W') { stepColorClass = 'bg-green-200 text-green-800'; }
+                else if (step === 'H') { stepColorClass = 'bg-red-200 text-red-800'; }
+                else { stepColorClass = 'bg-purple-200 text-purple-800 text-sm'; } 
+                
                 let stepHighlightClass = isStepHighlighted ? 'step-highlight-border' : '';
                 
-                // If highlighted, use a slightly lighter background color to make the border pop more
                 if (isStepHighlighted) {
-                    stepColorClass = step === 'W' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                    stepColorClass = step === 'W' ? 'bg-green-100 text-green-800' : (step === 'H' ? 'bg-red-100 text-red-800' : 'bg-purple-100 text-purple-800 text-sm');
                 }
 
+                let stepLabel = '';
+                if (step === 'W') { stepLabel = 'Whole Step'; }
+                else if (step === 'H') { stepLabel = 'Half Step'; }
+                else { stepLabel = 'Augmented Step'; }
+
                 html += `
-                    <div class="flex flex-col items-center">
-                        <span class="text-xs text-gray-500 mb-1">${step === 'W' ? 'Whole Step' : 'Half Step'}</span>
+                    <div class="flex flex-col items-center flex-shrink-0">
+                        <span class="text-xs text-gray-500 mb-1">${stepLabel}</span>
                         <div class="step-block shadow-md ${stepColorClass} ${stepHighlightClass}">${step}</div>
                     </div>
                 `;
 
-                // Note Block (Degree 2 through 7, plus the final Octave) Styling
                 const noteName = KEYS[nextPitchClass % 12];
-                // Display the tonic quality (I or i) for the octave note
-                const qualityDisplay = isOctave ? (state.isMajor ? MAJOR_QUALITIES[0] : MINOR_QUALITIES[0]) : quality; 
+                const finalQualityDisplay = isOctave ? qualities[0] : qualityDisplay; 
                 
                 let noteHighlightClass = isNoteHighlighted
                     ? 'note-block-active'
                     : 'bg-gray-300 text-gray-800';
-
-                html += `
-                    <div class="flex flex-col items-center">
-                        <span class="text-xs text-gray-500 mb-1">${isOctave ? 'Octave' : qualityDisplay}</span>
-                        <span class="step-block shadow-md ${noteHighlightClass}">
-                            ${noteName}
-                        </span>
-                    </div>
-                `;
+                
+                if (degree <= mode.degrees) {
+                    html += `
+                        <div class="flex flex-col items-center flex-shrink-0">
+                            <span class="text-xs text-gray-500 mb-1">${isOctave ? qualities[0] : finalQualityDisplay}</span>
+                            <span class="step-block shadow-md ${noteHighlightClass}">
+                                ${noteName}
+                            </span>
+                        </div>
+                    `;
+                }
             }
 
-            // Close the outer container and update the DOM
             html += `</div>`; 
             container.innerHTML = html;
         }
@@ -588,51 +605,59 @@
             ).join('');
         }
         
-        function renderModeButtons() {
-            const majorBtn = document.getElementById('major-mode-btn');
-            const minorBtn = document.getElementById('minor-mode-btn');
-
-            if (state.isMajor) {
-                majorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700';
-                minorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300';
-            } else {
-                majorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300';
-                minorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700';
-            }
+        function renderModeSelect() {
+            const select = document.getElementById('mode-select');
+            select.innerHTML = Object.entries(SCALE_MODES).map(([id, mode]) => 
+                `<option value="${id}" ${id === state.currentModeId ? 'selected' : ''}>${mode.name}</option>`
+            ).join('');
         }
+        
+        // Removed: renderExtensionSelect, renderInversionSelect
 
         function renderVisualizationModeButtons() {
             const chordBtn = document.getElementById('mode-chord-btn');
             const scaleBtn = document.getElementById('mode-scale-btn');
 
             if (state.visualizationMode === 'chord') {
-                chordBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3 bg-blue-600 text-white ring-4 ring-blue-300';
-                scaleBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3 bg-gray-200 text-gray-700 hover:bg-gray-300';
+                chordBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 bg-blue-600 text-white ring-4 ring-blue-300';
+                scaleBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 bg-gray-200 text-gray-700 hover:bg-gray-300';
             } else {
-                chordBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3 bg-gray-200 text-gray-700 hover:bg-gray-300';
-                scaleBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3 bg-blue-600 text-white ring-4 ring-blue-300';
+                chordBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 bg-gray-200 text-gray-700 hover:bg-gray-300';
+                scaleBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 bg-blue-600 text-white ring-4 ring-blue-300';
             }
         }
 
         function renderChordButtons() {
             const container = document.getElementById('chord-buttons-container');
-            const qualities = state.isMajor ? MAJOR_QUALITIES : MINOR_QUALITIES;
+            const mode = getCurrentMode();
+            const qualities = mode.qualities;
+            const triadQualities = mode.triadQualities;
             
-            container.innerHTML = qualities.map((quality, index) => {
+            const numDegrees = mode.degrees;
+
+            container.innerHTML = mode.qualities.slice(0, numDegrees).map((romanNumeral, index) => {
                 const degree = index + 1;
                 const isActive = degree === state.currentDegree;
                 
+                // Display both Roman Numeral and Triad Quality below it
+                const qualityDisplay = mode.isDiatonic ? triadQualities[index] : '';
+
                 return `
                     <button onclick="handleDegreeChange(${degree})"
                             class="py-3 px-2 rounded-lg font-extrabold text-lg transition duration-200 shadow-lg 
+                            flex flex-col items-center justify-center
                             ${isActive 
                                 ? 'bg-blue-700 text-white ring-4 ring-blue-300 transform scale-105' 
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-300'
                             }">
-                        ${quality}
+                        <span>${romanNumeral}</span>
+                        <span class="text-sm font-medium opacity-80">${qualityDisplay}</span>
                     </button>
                 `;
             }).join('');
+            
+            container.classList.remove('sm:grid-cols-7', 'sm:grid-cols-5');
+            container.classList.add(numDegrees === 7 ? 'sm:grid-cols-7' : 'sm:grid-cols-5');
         }
 
         function renderChordName() {
@@ -642,34 +667,31 @@
         // --- HANDLERS ---
         
         function updateUI() {
+            const mode = getCurrentMode();
+            // Check if the current degree is still valid for the new mode
+            if (state.currentDegree > mode.degrees) {
+                state.currentDegree = 1;
+            }
+
             if (state.visualizationMode === 'chord') {
-                state.highlightedPitchClasses = calculateTriadPitchClasses(
+                // Triads only, root position
+                state.highlightedMidiNotes = calculateChordMidiNotes(
                     state.currentKeyIndex, 
-                    state.isMajor, 
-                    state.currentDegree
-                );
-                
-                state.highlightedMidiNotes = calculateSpecificTriadMidiNotes(
-                    state.currentKeyIndex, 
-                    state.isMajor, 
                     state.currentDegree
                 );
             } else { // 'scale' mode
+                // Single note only
                 state.highlightedMidiNotes = calculateSingleScaleMidiNote(
                     state.currentKeyIndex, 
-                    state.isMajor, 
                     state.currentDegree
                 );
-                
-                if (state.highlightedMidiNotes.length > 0) {
-                     state.highlightedPitchClasses = [state.highlightedMidiNotes[0] % 12];
-                } else {
-                     state.highlightedPitchClasses = [];
-                }
             }
             
+            // Calculate pitch classes for the display (usually just the first octave)
+            state.highlightedPitchClasses = state.highlightedMidiNotes.map(midi => midi % 12);
+            
             renderKeySelect();
-            renderModeButtons();
+            renderModeSelect(); 
             renderChordButtons();
             renderChordName(); 
             renderScaleStructure(); 
@@ -683,12 +705,12 @@
             updateUI();
         }
 
-        function handleModeChange(isMajor) {
-            state.isMajor = isMajor;
+        function handleModeChange(modeId) {
+            state.currentModeId = modeId;
             state.currentDegree = 1; 
             updateUI();
         }
-
+        
         function handleDegreeChange(degree) {
             state.currentDegree = degree;
             updateUI();
@@ -704,22 +726,44 @@
             drawKeyboard();
         }
 
+        // --- PWA Registration (Existing functionality) ---
+        function registerPwa() {
+            const manifestContent = {
+                "name": "TheoryViz",
+                "short_name": "TheoryViz",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#ffffff",
+                "theme_color": "#3b82f6",
+                "icons": [
+                    {"src": "https://placehold.co/192x192/3b82f6/ffffff?text=TV", "sizes": "192x192", "type": "image/png"},
+                    {"src": "https://placehold.co/512x512/3b82f6/ffffff?text=TV", "sizes": "512x512", "type": "image/png"}
+                ]
+            };
 
+            const manifestBlob = new Blob([JSON.stringify(manifestContent)], {type : 'application/json'});
+            const manifestUrl = URL.createObjectURL(manifestBlob);
+            
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestUrl;
+            document.head.appendChild(link);
+        }
         // --- APPLICATION STARTUP ---
         
         window.onload = () => {
              // Re-initialize PIANO_KEY_DATA
              PIANO_KEY_DATA.length = 0;
              for (let i = START_MIDI; i <= END_MIDI; i++) {
-                 const isWhite = MAJOR_INTERVALS.includes(i % 12); 
                  PIANO_KEY_DATA.push({
                      midi: i,
                      pitchClass: i % 12,
                      name: KEYS[i % 12],
-                     isWhite: isWhite,
+                     isWhite: MAJOR_INTERVALS.includes(i % 12),
                  });
              }
              updateUI();
+             registerPwa();
         };
 
         window.addEventListener('resize', updateUI); 
