@@ -148,7 +148,7 @@
         <!-- Scale Structure Visualization -->
         <div class="mb-6 p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
             <h3 class="text-lg font-bold text-gray-700 mb-3 text-center">Scale Structure: Whole/Half Steps</h3>
-            <!-- CLASS CHANGES: Removed pl-4, Added justify-center for centering when content fits -->
+            <!-- The 'justify-center' class added in the previous successful edit is kept here -->
             <div id="scale-structure-container" class="flex flex-nowrap overflow-x-auto items-center space-x-2 pb-2 justify-center">
                 <!-- Scale steps will be rendered here -->
             </div>
@@ -419,13 +419,15 @@
          * Calculates the 0-based index of a white key, counting from START_MIDI (C4).
          */
         function getWhiteKeyIndex(midi) {
-            let whiteKeyIndex = 0;
-            for (let i = START_MIDI; i < midi; i++) {
-                if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) {
-                    whiteKeyIndex++;
-                }
+            let count = 0;
+            for (let i = START_MIDI; i <= midi; i++) {
+                 // Pitch classes 0, 2, 4, 5, 7, 9, 11 are white keys (C, D, E, F, G, A, B)
+                 if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) {
+                     count++;
+                 }
             }
-            return whiteKeyIndex;
+            // Return 0-based index (white key 1 is index 0)
+            return count - 1; 
         }
 
         /**
@@ -437,13 +439,25 @@
             const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
             const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
 
+            // White key index (0-based)
             const whiteKeyIndex = getWhiteKeyIndex(midi);
 
             if (isWhiteKey) {
+                // White keys start at their index multiplied by the white key width
                 return whiteKeyIndex * WKW;
             } else {
+                // For black keys, we need the index of the white key to the left (midi - 1)
                 const leftWhiteKeyIndex = getWhiteKeyIndex(midi - 1);
-                return (leftWhiteKeyIndex * WKW) + (WKW * 0.5 - BKW * 0.5); 
+                
+                // Position of the left white key's edge
+                const leftWhiteKeyX = leftWhiteKeyIndex * WKW;
+
+                // **CRITICAL FIX:** // The seam (dividing line) is at the end of the left white key: leftWhiteKeyX + WKW.
+                // To center the black key over the seam, its starting X position must be: 
+                // BlackKeyX = Seam X - (BKW / 2)
+                
+                const seamX = leftWhiteKeyX + WKW;
+                return seamX - (BKW / 2); 
             }
         }
         
@@ -464,7 +478,7 @@
             PIANO_KEY_DATA.forEach(key => {
                 if (key.isWhite) {
                     const isHighlighted = highlightedMidiNotes.includes(key.midi); 
-                    const x = getWhiteKeyIndex(key.midi) * WKW; 
+                    const x = getKeyXPosition(key.midi); // Correctly gets white key X position
 
                     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                     rect.setAttribute('x', x);
@@ -509,6 +523,7 @@
                 if (!key.isWhite) {
                     const isHighlighted = highlightedMidiNotes.includes(key.midi);
                     
+                    // Uses the corrected getKeyXPosition logic
                     const x = getKeyXPosition(key.midi); 
 
                     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -689,9 +704,12 @@
                 `<option value="${option.value}" ${option.value === state.currentInversion ? 'selected' : ''}>${option.label}</option>`
             ).join('');
             
-             // Disable inversion if only root position is available or in scale view
+             // Disable inversion state when scale view is active or non-diatonic
             if (!mode.isDiatonic || mode.degrees < 7 || state.visualizationMode === 'scale') {
                 select.disabled = true;
+                if (state.currentInversion !== 0) {
+                     state.currentInversion = 0;
+                }
             } else {
                  select.disabled = false;
             }
