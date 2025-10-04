@@ -148,8 +148,8 @@
         <!-- Scale Structure Visualization -->
         <div class="mb-6 p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
             <h3 class="text-lg font-bold text-gray-700 mb-3 text-center">Scale Structure: Whole/Half Steps</h3>
-            <!-- Restoring single-line display with horizontal scrolling for the scale structure -->
-            <div id="scale-structure-container" class="flex flex-nowrap overflow-x-auto items-center space-x-2 pl-4 pb-2">
+            <!-- CLASS CHANGES: Removed pl-4, Added justify-center for centering when content fits -->
+            <div id="scale-structure-container" class="flex flex-nowrap overflow-x-auto items-center space-x-2 pb-2 justify-center">
                 <!-- Scale steps will be rendered here -->
             </div>
         </div>
@@ -680,9 +680,21 @@
         
         function renderInversionSelect() {
             const select = document.getElementById('inversion-select');
-            select.innerHTML = INVERSION_OPTIONS.map(option => 
+            const mode = getCurrentMode();
+            
+            // Filter inversion options for non-diatonic scales (only show Root)
+            const availableOptions = (mode.isDiatonic && mode.degrees === 7) ? INVERSION_OPTIONS : [INVERSION_OPTIONS[0]];
+
+            select.innerHTML = availableOptions.map(option => 
                 `<option value="${option.value}" ${option.value === state.currentInversion ? 'selected' : ''}>${option.label}</option>`
             ).join('');
+            
+             // Disable inversion if only root position is available or in scale view
+            if (!mode.isDiatonic || mode.degrees < 7 || state.visualizationMode === 'scale') {
+                select.disabled = true;
+            } else {
+                 select.disabled = false;
+            }
         }
 
         function renderVisualizationModeButtons() {
@@ -730,6 +742,7 @@
                 `;
             }).join('');
             
+            // Adjust grid columns based on number of degrees
             container.classList.remove('sm:grid-cols-7', 'sm:grid-cols-5');
             container.classList.add(numDegrees === 7 ? 'sm:grid-cols-7' : 'sm:grid-cols-5');
         }
@@ -752,22 +765,16 @@
                 state.highlightedMidiNotes = calculateChordMidiNotes(
                     state.currentKeyIndex, 
                     state.currentDegree,
-                    state.currentInversion
+                    mode.isDiatonic ? state.currentInversion : 0 // Only use inversion for diatonic
                 );
-                // Enable inversion control
-                document.getElementById('inversion-select').disabled = false;
             } else { // 'scale' mode
                 // Single note only, inversion is irrelevant
                 state.highlightedMidiNotes = calculateSingleScaleMidiNote(
                     state.currentKeyIndex, 
                     state.currentDegree
                 );
-                 // Disable inversion control and reset inversion state
-                document.getElementById('inversion-select').disabled = true;
-                // If it was in an inversion, reset the select box to Root Position (0)
-                if (state.currentInversion !== 0) {
-                     state.currentInversion = 0;
-                }
+                // Reset inversion state when switching to scale view
+                state.currentInversion = 0;
             }
             
             // Calculate pitch classes for the display (usually just the first octave)
@@ -775,7 +782,7 @@
             
             renderKeySelect();
             renderModeSelect(); 
-            renderInversionSelect(); 
+            renderInversionSelect(); // Calls disable/enable based on state
             renderChordButtons();
             renderChordName(); 
             renderScaleStructure(); 
