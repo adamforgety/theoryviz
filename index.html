@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -37,6 +38,37 @@
             -ms-overflow-style: none;  /* IE and Edge */
             scrollbar-width: none;  /* Firefox */
         }
+        
+        /* Style for the step blocks */
+        .step-block {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.875rem; /* text-sm */
+            width: 32px; /* Fixed width for consistency */
+            height: 32px;
+            border-radius: 9999px; /* rounded-full */
+            transition: all 0.2s; /* Apply transition to background and scale */
+            border: 2px solid transparent; /* Ensure a base border for all for consistent sizing */
+            box-sizing: border-box;
+        }
+
+        /* Specific highlight for the active STEP (border only) */
+        .step-highlight-border {
+            border-color: #3b82f6; /* Blue border */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); /* Blue ring/glow */
+            transform: scale(1.05); /* Slight scale for visibility */
+        }
+
+        /* Specific highlight for the active NOTE (solid fill) */
+        .note-block-active {
+            background-color: #3b82f6 !important; /* bg-blue-500 */
+            color: white !important;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5); /* shadow-lg with blue tint */
+            transform: scale(1.1);
+            border-color: #3b82f6 !important; /* Set border to match background */
+        }
 
     </style>
 </head>
@@ -47,9 +79,21 @@
             TheoryViz
         </h1>
         <p class="text-center text-gray-600 mb-8">
-            Visualize harmony anywhere.
+            Visualize harmony and melody.
         </p>
 
+        <!-- Visualization Mode Selector -->
+        <div class="flex justify-center space-x-4 mb-6">
+            <button id="mode-chord-btn" onclick="handleVisualizationModeChange('chord')"
+                    class="py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3">
+                Chord View (Triads)
+            </button>
+            <button id="mode-scale-btn" onclick="handleVisualizationModeChange('scale')"
+                    class="py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3">
+                Scale View (Single Note)
+            </button>
+        </div>
+        
         <!-- Control Panel -->
         <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4 mb-8 p-4 bg-gray-100 rounded-lg">
             
@@ -91,20 +135,28 @@
             </div>
         </div>
 
+        <!-- Scale Structure Visualization -->
+        <div class="mb-8 p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
+            <h3 class="text-lg font-bold text-gray-700 mb-3 text-center">Scale Structure: Whole/Half Steps</h3>
+            <div id="scale-structure-container" class="flex justify-center items-center space-x-2 flex-wrap">
+                <!-- Scale steps will be rendered here -->
+            </div>
+        </div>
+
         <!-- Piano Keyboard (Now using SVG) -->
         <div id="piano-container" class="keyboard-container overflow-x-scroll pb-4">
             <svg id="piano-keyboard-svg" width="100%" height="200" preserveAspectRatio="xMinYMin slice"></svg>
         </div>
         
-        <!-- Current Chord Name Display -->
+        <!-- Current Chord/Note Name Display -->
         <div class="mt-6 mb-4 text-center">
-            <p class="text-xl font-semibold text-gray-700">Current Chord:</p>
+            <p class="text-xl font-semibold text-gray-700">Current Highlight:</p>
             <h2 id="current-chord-display" class="text-4xl font-extrabold text-blue-600 mt-1">
-                <!-- Chord name will be displayed here -->
+                <!-- Chord or single note name will be displayed here -->
             </h2>
         </div>
 
-        <!-- Chord Buttons -->
+        <!-- Chord Buttons (Scale Degree Selector) -->
         <div id="chord-buttons-container" class="mt-8 grid grid-cols-4 sm:grid-cols-7 gap-3">
             <!-- Buttons will be dynamically generated here -->
         </div>
@@ -116,6 +168,10 @@
         const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
         const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
         
+        // Whole (W = 2 semitones) and Half (H = 1 semitone) step patterns, starting after the root
+        const MAJOR_STEPS = ["W", "W", "H", "W", "W", "W", "H"]; // W-W-H-W-W-W-H (7 steps, 8 notes)
+        const MINOR_STEPS = ["W", "H", "W", "W", "H", "W", "W"]; // W-H-W-W-H-W-W (7 steps, 8 notes)
+
         // Roman Numerals and Qualities (1-based index)
         const MAJOR_QUALITIES = ["I", "ii", "iii", "IV", "V", "vi", "vii°"];
         const MINOR_QUALITIES = ["i", "ii°", "III", "iv", "v", "VI", "VII"];
@@ -151,55 +207,48 @@
         
         // Piano Key Structure (for lookup only, not for drawing structure)
         const PIANO_KEY_DATA = [];
-        for (let i = START_MIDI; i <= END_MIDI; i++) {
-            PIANO_KEY_DATA.push({
-                midi: i,
-                pitchClass: i % 12,
-                name: KEYS[i % 12],
-                isWhite: MAJOR_INTERVALS.includes(i % 12),
-            });
-        }
+        
 
         // --- STATE ---
         let state = {
             currentKeyIndex: 0, // C is default
             isMajor: true,
             currentDegree: 1, // I or i
-            triadPitchClasses: [], // Array of 3 pitch classes (0-11)
-            triadMidiNotes: [], // Array of 3 specific MIDI notes
+            highlightedPitchClasses: [], // Array of highlighted pitch classes (0-11)
+            highlightedMidiNotes: [], // Array of specific MIDI notes
             isCenteringEnabled: true, // Default to centering for mobile
+            visualizationMode: 'chord' // 'chord' or 'scale'
         };
 
         // --- CORE MUSIC THEORY LOGIC ---
         
         /**
-         * Determines the standard quality text (Major, minor, diminished) for the current chord.
-         * @returns {string} The formatted chord name (e.g., "C Major", "D minor").
+         * Gets the display name for the current highlight (Chord or Single Note).
          */
-        function getChordName() {
-            // 1. Determine the actual root note of the current chord
+        function getHighlightName() {
+            // 1. Determine the actual root note of the current highlight
             const intervals = state.isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
-            // Get the interval for the current degree (e.g., ii is interval 2)
             const degreeInterval = intervals[state.currentDegree - 1]; 
-            // Calculate the 0-11 index of the chord's root note
-            const chordRootIndex = (state.currentKeyIndex + degreeInterval) % 12;
-            // Get the name of the chord's root note (e.g., D for the ii chord in C)
-            const chordRootName = KEYS[chordRootIndex]; 
+            const highlightRootIndex = (state.currentKeyIndex + degreeInterval) % 12;
+            const highlightRootName = KEYS[highlightRootIndex]; 
             
-            // 2. Determine the quality based on Roman numeral case
+            if (state.visualizationMode === 'scale') {
+                const qualities = state.isMajor ? MAJOR_QUALITIES : MINOR_QUALITIES;
+                const romanNumeral = qualities[state.currentDegree - 1];
+                return `${highlightRootName} (${romanNumeral} Note)`;
+            }
+
+            // --- Chord Logic (existing) ---
             const qualities = state.isMajor ? MAJOR_QUALITIES : MINOR_QUALITIES;
             const romanNumeral = qualities[state.currentDegree - 1];
             
             let qualityText = "";
-            // Check for diminished symbol (°)
             if (romanNumeral.includes('°')) {
                 qualityText = "diminished";
             } 
-            // Check for uppercase (Major) or lowercase (minor) Roman numeral
             else if (romanNumeral === romanNumeral.toUpperCase()) {
-                // Check if it's the dominant (V) in major, which is often just 'Major'
                 if (state.isMajor && state.currentDegree === 5) {
-                    qualityText = "Dominant"; // Or just "Major"
+                    qualityText = "Dominant"; 
                 } else {
                     qualityText = "Major";
                 }
@@ -207,8 +256,7 @@
                 qualityText = "minor";
             }
             
-            // 3. Combine the chord root name and the quality
-            return `${chordRootName} ${qualityText}`;
+            return `${highlightRootName} ${qualityText}`;
         }
 
         function getScalePitchClasses(keyIndex, isMajor) {
@@ -216,6 +264,9 @@
             return intervals.map(interval => (keyIndex + interval) % 12);
         }
 
+        /**
+         * Calculates the 3 pitch classes for the current triad. Used in Chord View.
+         */
         function calculateTriadPitchClasses(keyIndex, isMajor, degree) {
             const scale = getScalePitchClasses(keyIndex, isMajor);
             const scaleDegreeIndex = degree - 1; 
@@ -226,22 +277,15 @@
         }
 
         /**
-         * Calculates the 3 specific MIDI notes for the triad, ensuring sequential movement.
+         * Calculates the 3 specific MIDI notes for the triad. Used in Chord View.
          */
         function calculateSpecificTriadMidiNotes(keyIndex, isMajor, degree) {
             const scaleIntervals = isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
             const scaleDegreeIndex = degree - 1; 
 
-            // 1. Determine the CHORD ROOT MIDI note
-            // Base MIDI is C4 (60). We want the I chord to start roughly in the middle octave (C4).
-            const tonicMidiInStartingOctave = 60; // Always start C at C4
-
-            // The root of the current chord moves up the keyboard diatonic-step by diatonic-step.
-            // We use the root key index (e.g., +0 for C, +1 for C#, etc.) 
-            // and the interval of the degree (e.g., +4 semitones for III in C Major)
+            const tonicMidiInStartingOctave = 60; 
             const rootMidi = tonicMidiInStartingOctave + keyIndex + scaleIntervals[scaleDegreeIndex];
             
-            // 2. Calculate the semitone distance of the 3rd and 5th relative to the CHORD ROOT.
             const tonicIntervals = [
                 scaleIntervals[scaleDegreeIndex],
                 scaleIntervals[(scaleDegreeIndex + 2) % 7],
@@ -251,72 +295,43 @@
             let semitoneOffsets = [0]; 
 
             let thirdInterval = tonicIntervals[1] - tonicIntervals[0];
-            if (thirdInterval < 0) thirdInterval += 12; // Handle octave wrap (e.g., when the 3rd is the next octave's note)
+            if (thirdInterval < 0) thirdInterval += 12; 
             semitoneOffsets.push(thirdInterval);
 
             let fifthInterval = tonicIntervals[2] - tonicIntervals[0];
-            if (fifthInterval < 0) fifthInterval += 12; // Handle octave wrap
+            if (fifthInterval < 0) fifthInterval += 12; 
             semitoneOffsets.push(fifthInterval);
             
-            // 3. Build the final triad MIDI notes
             const triadMidiNotes = semitoneOffsets.map(offset => rootMidi + offset);
 
-            // Filter out notes outside our visible keyboard range (START_MIDI to END_MIDI)
             return triadMidiNotes.filter(midi => midi >= START_MIDI && midi <= END_MIDI);
         }
 
-        // --- SVG RENDERING LOGIC ---
-
         /**
-         * Calculates the X position for a given absolute MIDI index.
+         * Calculates the specific MIDI note for the root of the selected scale degree. Used in Scale View.
          */
-        function getKeyXPosition(absoluteIndex) {
-            const noteMod12 = absoluteIndex % 12;
-            const isWhiteKey = [0, 2, 4, 5, 7, 9, 11].includes(noteMod12);
+        function calculateSingleScaleMidiNote(keyIndex, isMajor, degree) {
+            const scaleIntervals = isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
+            const scaleDegreeIndex = degree - 1; 
+
+            const tonicMidiInStartingOctave = 60; 
+
+            // Calculate the MIDI note for the selected degree's root
+            const rootMidi = tonicMidiInStartingOctave + keyIndex + scaleIntervals[scaleDegreeIndex];
             
-            const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
-            const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
-
-            let whiteKeyCount = 0;
-            // Count white keys from the start of the visualization range (C4 = 60) up to this key
-            for (let i = START_MIDI; i < absoluteIndex; i++) {
-                if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) whiteKeyCount++;
-            }
-
-            if (isWhiteKey) {
-                return whiteKeyCount * WKW;
-            } else {
-                // Position black key relative to the start of the first white key it sits on top of
-                // C# (61) sits on C (60). White key count for 60 is 0. Position is 0*WKW + offset.
-                // The black keys are centered over the boundary, but positioned using the left white key's edge.
-                let whiteKeysBefore = 0;
-                for (let i = START_MIDI; i <= absoluteIndex; i++) {
-                     if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) whiteKeysBefore++;
-                }
-                // Black key position: start of the white key *after* it, minus half the black key width.
-                // Special handling for the position on C, D, F, G, A
-                // C# is at the edge of the C key. D# is at the edge of the D key.
-                const whiteKeyIndex = whiteKeysBefore; // The index of the white key to the left
-                
-                // Fine-tuned offsets for black keys relative to the white keys:
-                // C#: -0.5 key width from D key start (WKW * 1)
-                // D#: -0.5 key width from E key start (WKW * 2)
-                // F#: -0.5 key width from G key start (WKW * 3)
-                // G#: -0.5 key width from A key start (WKW * 4)
-                // A#: -0.5 key width from B key start (WKW * 5)
-
-                // This logic is complex. The original method was more direct:
-                // Position is based on the number of white keys before it, minus half the black key width.
-                // whiteKeyCount already calculated white keys *before* the current note.
-                return (whiteKeyCount * WKW) + WKW - (BKW / 2) - 1.5 * WKW;
-            }
+            // Return an array with a single note.
+            return [rootMidi].filter(midi => midi >= START_MIDI && midi <= END_MIDI);
         }
 
-        // The previous getKeyXPosition logic was slightly off for black keys.
-        // Let's use a standard implementation that is less complex:
+        // --- RENDERING FUNCTIONS ---
+        
+        /**
+         * Calculates the 0-based index of a white key, counting from START_MIDI (C4).
+         */
         function getWhiteKeyIndex(midi) {
             let whiteKeyIndex = 0;
             for (let i = START_MIDI; i < midi; i++) {
+                // Check if the pitch class is a white key note
                 if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) {
                     whiteKeyIndex++;
                 }
@@ -324,7 +339,10 @@
             return whiteKeyIndex;
         }
 
-        function getKeyXPositionRevised(midi) {
+        /**
+         * Calculates the X position of a key based on its MIDI number.
+         */
+        function getKeyXPosition(midi) {
             const pitchClass = midi % 12;
             const isWhiteKey = [0, 2, 4, 5, 7, 9, 11].includes(pitchClass);
             const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
@@ -335,27 +353,10 @@
             if (isWhiteKey) {
                 return whiteKeyIndex * WKW;
             } else {
-                // Black keys are placed relative to the white key *to its left*.
-                // Black key positions (relative to C):
-                // C#: Over C/D boundary. White key index is C's index. Offset: WKW - BKW/2
-                // D#: Over D/E boundary. White key index is D's index. Offset: 2*WKW - BKW/2
-                
-                // The white key index *before* the black key:
-                let baseWhiteIndex = whiteKeyIndex; 
-                
-                switch (pitchClass) {
-                    case 1: // C# / Db
-                    case 3: // D# / Eb
-                    case 6: // F# / Gb
-                    case 8: // G# / Ab
-                    case 10: // A# / Bb
-                        // The position is based on the edge of the white key to its left.
-                        // We need the number of white keys *before* this black key.
-                        return baseWhiteIndex * WKW + WKW - (BKW / 2);
-                    default:
-                        // This case should not be hit for black keys, but as a fallback:
-                        return baseWhiteIndex * WKW;
-                }
+                // For a black key, use the white key index to its left (midi - 1)
+                const leftWhiteKeyIndex = getWhiteKeyIndex(midi - 1);
+                // Calculate the position: start of the left white key + offset
+                return (leftWhiteKeyIndex * WKW) + (WKW * 0.5 - BKW * 0.5); 
             }
         }
         
@@ -364,7 +365,7 @@
          */
         function drawKeyboard() {
             const svg = document.getElementById('piano-keyboard-svg');
-            const highlightedMidiNotes = state.triadMidiNotes; 
+            const highlightedMidiNotes = state.highlightedMidiNotes; // Use new state variable
             
             svg.setAttribute('width', `${KEYBOARD_CONFIG.KEYBOARD_WIDTH}px`);
             svg.setAttribute('viewBox', `0 0 ${KEYBOARD_CONFIG.KEYBOARD_WIDTH} ${KEYBOARD_CONFIG.KEYBOARD_HEIGHT}`);
@@ -379,14 +380,14 @@
             PIANO_KEY_DATA.forEach(key => {
                 if (key.isWhite) {
                     const isHighlighted = highlightedMidiNotes.includes(key.midi); 
-                    const x = getWhiteKeyIndex(key.midi) * WKW; // Simpler positioning for white keys
+                    const x = getWhiteKeyIndex(key.midi) * WKW; 
 
                     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                     rect.setAttribute('x', x);
                     rect.setAttribute('y', Y_START);
                     rect.setAttribute('width', WKW);
                     rect.setAttribute('height', WKH);
-                    rect.setAttribute('rx', 4); // Rounded corners
+                    rect.setAttribute('rx', 4); 
                     rect.setAttribute('ry', 4);
                     rect.setAttribute('stroke', '#a1a1aa');
                     rect.setAttribute('stroke-width', '1');
@@ -395,17 +396,15 @@
                     
                     svg.appendChild(rect);
 
-                    // --- Labeling Logic for White Keys ---
+                    // --- Labeling Logic for White Keys (Updated to show key name on all highlighted white keys) ---
                     let labelText = null;
                     let labelFill = isHighlighted ? KEY_COLORS.WHITE : '#4b5563'; 
 
                     if (isHighlighted) {
-                        // Display the root note of the chord on the key
-                        const rootPitchClass = state.triadPitchClasses[0];
-                        if (key.pitchClass === rootPitchClass) {
-                            labelText = KEYS[rootPitchClass]; // Show root name only on the root key
-                        }
+                         // In both Scale View and Chord View, label the highlighted note
+                         labelText = key.name;
                     } else if (key.name === 'C' || key.name === 'F') {
+                        // Show octave markers for unhighlighted C and F
                         // Octave calculation: (MIDI / 12) - 1. E.g., C4 (60) -> (60/12)-1 = 4
                         labelText = `${key.name}${Math.floor(key.midi / 12) - 1}`;
                     }
@@ -429,21 +428,7 @@
                 if (!key.isWhite) {
                     const isHighlighted = highlightedMidiNotes.includes(key.midi);
                     
-                    // Black keys are tricky. Determine the index of the white key to the left.
-                    const leftWhiteKeyMidi = key.midi - 1;
-                    let whiteKeyIndex = getWhiteKeyIndex(leftWhiteKeyMidi);
-
-                    // Offset the black key X position relative to the left white key's edge:
-                    let xOffset = 0;
-                    switch (key.pitchClass) {
-                        case 1: xOffset = WKW - (BKW / 2); break; // C# / Db (Over C)
-                        case 3: xOffset = WKW - (BKW / 2); break; // D# / Eb (Over D)
-                        case 6: xOffset = WKW - (BKW / 2); break; // F# / Gb (Over F)
-                        case 8: xOffset = WKW - (BKW / 2); break; // G# / Ab (Over G)
-                        case 10: xOffset = WKW - (BKW / 2); break; // A# / Bb (Over A)
-                    }
-
-                    const x = (whiteKeyIndex * WKW) + xOffset - WKW * 0.5; // Final adjustment for centering
+                    const x = getKeyXPosition(key.midi); // Use the unified position function
 
                     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                     rect.setAttribute('x', x);
@@ -459,6 +444,7 @@
 
                     svg.appendChild(rect);
                     
+                    // Black Key Labeling: Shows name if highlighted (already correct)
                     if (isHighlighted) {
                         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                         text.setAttribute('x', x + BKW / 2);
@@ -476,16 +462,15 @@
             const pianoContainer = document.getElementById('piano-container');
             
             // --- CONDITIONAL SCROLLING LOGIC ---
-            if (state.isCenteringEnabled && state.triadMidiNotes.length > 0) {
+            if (state.isCenteringEnabled && state.highlightedMidiNotes.length > 0) {
                 // Centering is enabled: calculate scroll position to center the chord's root (first note)
-                const centerMidi = state.triadMidiNotes[0]; 
+                const centerMidi = state.highlightedMidiNotes[0]; 
                 
                 let centerScrollX = 0;
                 const centerKeyData = PIANO_KEY_DATA.find(k => k.midi === centerMidi);
                 
                 if (centerKeyData) {
-                    // Use the original X position calculation for centering simplicity
-                    const centerKeyX = centerKeyData.isWhite ? getWhiteKeyIndex(centerKeyData.midi) * WKW : getKeyXPositionRevised(centerKeyData.midi);
+                    const centerKeyX = getKeyXPosition(centerKeyData.midi);
                     const containerWidth = pianoContainer.offsetWidth;
                     
                     const keyWidth = centerKeyData.isWhite ? WKW : BKW;
@@ -507,6 +492,96 @@
             }
         }
         
+        /**
+         * Renders the whole-step/half-step diagram with dynamic highlighting.
+         * This version ensures the entire scale, including the final half-step and the octave note, is displayed.
+         */
+        function renderScaleStructure() {
+            const container = document.getElementById('scale-structure-container');
+            const scaleSteps = state.isMajor ? MAJOR_STEPS : MINOR_STEPS;
+            const scaleIntervals = state.isMajor ? MAJOR_INTERVALS : MINOR_INTERVALS;
+            const currentDegree = state.currentDegree;
+            const isScaleView = state.visualizationMode === 'scale';
+            
+            // Determine active class for the Tonic (Degree 1)
+            const tonicActiveClass = currentDegree === 1 && isScaleView 
+                ? 'note-block-active' 
+                : 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-300';
+            
+            // Start with the tonic (Root Note)
+            let html = `
+                <div class="flex items-center space-x-2 my-1">
+                    <span class="step-block text-lg ${tonicActiveClass}">
+                        ${KEYS[state.currentKeyIndex]}
+                    </span>
+            `;
+            
+            // Add the steps (W or H) between the scale degrees
+            // The loop runs for all 7 steps (i=0 to 6), resulting in 7 steps and the 8th note (octave).
+            for (let i = 0; i < scaleSteps.length; i++) { 
+                const step = scaleSteps[i];
+                const degree = i + 2; // Starts from the 2nd degree
+                const quality = state.isMajor ? MAJOR_QUALITIES[i + 1] : MINOR_QUALITIES[i + 1];
+
+                // Calculate the next pitch class
+                // Use (i + 1) % 7 to get the index of the next interval in the scaleIntervals array
+                const nextIntervalIndex = (i + 1) % 7; 
+                const nextPitchClass = (state.currentKeyIndex + scaleIntervals[nextIntervalIndex]);
+                
+                // Degree 8 is the octave, which is visually reached by the last step (index 6)
+                const isOctave = i === scaleSteps.length - 1; 
+
+                // Determine highlighting for the Step Block
+                // Step is highlighted if it leads TO the selected degree, OR if it's the last step and degree 1 (octave) is selected
+                const isStepHighlighted = isScaleView && 
+                                        ((degree === currentDegree) || (isOctave && currentDegree === 1));
+
+                // Determine highlighting for the Note Block
+                // Note is highlighted if it IS the selected degree, OR if it's the octave and degree 1 is selected
+                const isNoteHighlighted = isScaleView && (degree === currentDegree || (isOctave && currentDegree === 1));
+
+
+                // Step Block (W or H) Styling
+                let stepColorClass = step === 'W' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800';
+                let stepHighlightClass = isStepHighlighted ? 'step-highlight-border' : '';
+                
+                // If highlighted, use a slightly lighter background color to make the border pop more
+                if (isStepHighlighted) {
+                    stepColorClass = step === 'W' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                }
+
+                html += `
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs text-gray-500 mb-1">${step === 'W' ? 'Whole Step' : 'Half Step'}</span>
+                        <div class="step-block shadow-md ${stepColorClass} ${stepHighlightClass}">${step}</div>
+                    </div>
+                `;
+
+                // Note Block (Degree 2 through 7, plus the final Octave) Styling
+                const noteName = KEYS[nextPitchClass % 12];
+                // Display the tonic quality (I or i) for the octave note
+                const qualityDisplay = isOctave ? (state.isMajor ? MAJOR_QUALITIES[0] : MINOR_QUALITIES[0]) : quality; 
+                
+                let noteHighlightClass = isNoteHighlighted
+                    ? 'note-block-active'
+                    : 'bg-gray-300 text-gray-800';
+
+                html += `
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs text-gray-500 mb-1">${isOctave ? 'Octave' : qualityDisplay}</span>
+                        <span class="step-block shadow-md ${noteHighlightClass}">
+                            ${noteName}
+                        </span>
+                    </div>
+                `;
+            }
+
+            // Close the outer container and update the DOM
+            html += `</div>`; 
+            container.innerHTML = html;
+        }
+
+
         function renderKeySelect() {
             const select = document.getElementById('key-select');
             select.innerHTML = KEYS.map((key, index) => 
@@ -524,6 +599,19 @@
             } else {
                 majorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300';
                 minorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700';
+            }
+        }
+
+        function renderVisualizationModeButtons() {
+            const chordBtn = document.getElementById('mode-chord-btn');
+            const scaleBtn = document.getElementById('mode-scale-btn');
+
+            if (state.visualizationMode === 'chord') {
+                chordBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3 bg-blue-600 text-white ring-4 ring-blue-300';
+                scaleBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3 bg-gray-200 text-gray-700 hover:bg-gray-300';
+            } else {
+                chordBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3 bg-gray-200 text-gray-700 hover:bg-gray-300';
+                scaleBtn.className = 'py-3 px-6 rounded-lg font-bold transition duration-200 shadow-xl w-1/2 md:w-1/3 bg-blue-600 text-white ring-4 ring-blue-300';
             }
         }
 
@@ -549,28 +637,44 @@
         }
 
         function renderChordName() {
-            document.getElementById('current-chord-display').textContent = getChordName();
+            document.getElementById('current-chord-display').textContent = getHighlightName();
         }
         
         // --- HANDLERS ---
         
         function updateUI() {
-            state.triadPitchClasses = calculateTriadPitchClasses(
-                state.currentKeyIndex, 
-                state.isMajor, 
-                state.currentDegree
-            );
-            
-            state.triadMidiNotes = calculateSpecificTriadMidiNotes(
-                state.currentKeyIndex, 
-                state.isMajor, 
-                state.currentDegree
-            );
+            if (state.visualizationMode === 'chord') {
+                state.highlightedPitchClasses = calculateTriadPitchClasses(
+                    state.currentKeyIndex, 
+                    state.isMajor, 
+                    state.currentDegree
+                );
+                
+                state.highlightedMidiNotes = calculateSpecificTriadMidiNotes(
+                    state.currentKeyIndex, 
+                    state.isMajor, 
+                    state.currentDegree
+                );
+            } else { // 'scale' mode
+                state.highlightedMidiNotes = calculateSingleScaleMidiNote(
+                    state.currentKeyIndex, 
+                    state.isMajor, 
+                    state.currentDegree
+                );
+                
+                if (state.highlightedMidiNotes.length > 0) {
+                     state.highlightedPitchClasses = [state.highlightedMidiNotes[0] % 12];
+                } else {
+                     state.highlightedPitchClasses = [];
+                }
+            }
             
             renderKeySelect();
             renderModeButtons();
             renderChordButtons();
-            renderChordName(); // Display the correct chord name
+            renderChordName(); 
+            renderScaleStructure(); 
+            renderVisualizationModeButtons(); 
             drawKeyboard(); 
         }
 
@@ -591,128 +695,32 @@
             updateUI();
         }
         
+        function handleVisualizationModeChange(mode) {
+            state.visualizationMode = mode;
+            updateUI();
+        }
+        
         function toggleCentering(checked) {
             state.isCenteringEnabled = checked;
             drawKeyboard();
         }
 
 
-        // --- PWA INITIALIZATION ---
-        
-        function registerPwa() {
-            // 1. Service Worker Definition (Caching)
-            const swCode = `
-                const CACHE_NAME = 'theoryviz-v1';
-                // Cache the main application file (this HTML page)
-                const urlsToCache = ['./'];
-
-                self.addEventListener('install', (event) => {
-                    console.log('[Service Worker] Installing...');
-                    self.skipWaiting();
-                    event.waitUntil(
-                        caches.open(CACHE_NAME)
-                            .then((cache) => {
-                                console.log('[Service Worker] Caching app shell');
-                                return cache.addAll(urlsToCache);
-                            })
-                            .catch(err => console.error('[Service Worker] Caching failed:', err))
-                    );
-                });
-
-                self.addEventListener('activate', (event) => {
-                    console.log('[Service Worker] Activating...');
-                    const cacheWhitelist = [CACHE_NAME];
-                    event.waitUntil(
-                        caches.keys().then((cacheNames) => {
-                            return Promise.all(
-                                cacheNames.map((cacheName) => {
-                                    if (cacheWhitelist.indexOf(cacheName) === -1) {
-                                        console.log('[Service Worker] Deleting old cache:', cacheName);
-                                        return caches.delete(cacheName);
-                                    }
-                                })
-                            );
-                        })
-                    );
-                });
-
-                self.addEventListener('fetch', (event) => {
-                    // Cache-first strategy for the app shell
-                    event.respondWith(
-                        caches.match(event.request, { ignoreSearch: true })
-                            .then((response) => {
-                                // Cache hit - return response
-                                if (response) {
-                                    return response;
-                                }
-                                // Fallback to network (important for Tailwind CSS CDN)
-                                return fetch(event.request);
-                            })
-                    );
-                });
-            `;
-            
-            // 2. Register Service Worker using a Blob URL
-            if ('serviceWorker' in navigator) {
-                try {
-                    const swBlob = new Blob([swCode], { type: 'application/javascript' });
-                    const swUrl = URL.createObjectURL(swBlob);
-                    
-                    navigator.serviceWorker.register(swUrl, { scope: './' })
-                        .then(registration => {
-                            console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                        })
-                        .catch(err => {
-                            console.error('ServiceWorker registration failed: ', err);
-                        });
-                } catch (error) {
-                    console.error('Failed to create Service Worker Blob:', error);
-                }
-            }
-
-            // 3. Web App Manifest Definition
-            const manifestContent = {
-                "name": "TheoryViz",
-                "short_name": "TheoryViz",
-                "description": "Visualize music harmony and chords on a piano keyboard.",
-                "start_url": "./",
-                "display": "standalone",
-                "orientation": "portrait",
-                "background_color": "#ffffff",
-                "theme_color": "#3b82f6",
-                "icons": [
-                    {"src": "https://placehold.co/192x192/3b82f6/ffffff?text=TV", "sizes": "192x192", "type": "image/png"},
-                    {"src": "https://placehold.co/512x512/3b82f6/ffffff?text=TV", "sizes": "512x512", "type": "image/png"}
-                ]
-            };
-
-            // 4. Create Manifest Data URI and link it
-            const manifestBlob = new Blob([JSON.stringify(manifestContent)], {type : 'application/json'});
-            const manifestUrl = URL.createObjectURL(manifestBlob);
-            
-            const link = document.createElement('link');
-            link.rel = 'manifest';
-            link.href = manifestUrl;
-            document.head.appendChild(link);
-            
-            console.log('Manifest linked successfully.');
-        }
-
         // --- APPLICATION STARTUP ---
         
         window.onload = () => {
-            // Re-initialize PIANO_KEY_DATA (already done at the top but re-running just in case)
+             // Re-initialize PIANO_KEY_DATA
              PIANO_KEY_DATA.length = 0;
              for (let i = START_MIDI; i <= END_MIDI; i++) {
+                 const isWhite = MAJOR_INTERVALS.includes(i % 12); 
                  PIANO_KEY_DATA.push({
                      midi: i,
                      pitchClass: i % 12,
                      name: KEYS[i % 12],
-                     isWhite: MAJOR_INTERVALS.includes(i % 12),
+                     isWhite: isWhite,
                  });
              }
              updateUI();
-             registerPwa(); // Call PWA registration on load
         };
 
         window.addEventListener('resize', updateUI); 
