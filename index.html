@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TheoryViz</title>
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6">
+    <!-- The manifest link will be dynamically created by JS later -->
+
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -15,13 +19,23 @@
             border-radius: 0.5rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             /* Light gray for contrast against the white keys */
-            background-color: #f3f4f6; 
+            background-color: #f3f4f6;
             overflow-x: scroll; /* Allows the full keyboard width to be viewed */
+            overscroll-behavior: contain; /* Prevents unwanted browser scroll on mobile drag */
         }
-        
+
         /* Highlighting Styles for a consistent look with the buttons */
         .highlight-transition {
             transition: fill 0.2s ease;
+        }
+
+        /* Hide scrollbar for a cleaner look, while still allowing scroll */
+        .keyboard-container::-webkit-scrollbar {
+            display: none;
+        }
+        .keyboard-container {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
         }
 
     </style>
@@ -99,8 +113,8 @@
     <script>
         // --- CONSTANTS AND MAPPING ---
         const KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-        const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11]; 
-        const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10]; 
+        const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+        const MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
         
         // Roman Numerals and Qualities (1-based index)
         const MAJOR_QUALITIES = ["I", "ii", "iii", "IV", "V", "vi", "vii°"];
@@ -113,12 +127,12 @@
         // --- SVG KEYBOARD CONFIGURATION (Adapted from the example) ---
         const KEYBOARD_CONFIG = {
             TOTAL_KEYS_RANGE: END_MIDI - START_MIDI + 1, // 30 keys
-            WHITE_KEYS_COUNT: 18, 
+            WHITE_KEYS_COUNT: 18,
             
             // Virtual width for the SVG canvas 
-            KEYBOARD_WIDTH: 1080, 
+            KEYBOARD_WIDTH: 1080,
             KEYBOARD_HEIGHT: 200,
-            KEY_Y_START: 10, 
+            KEY_Y_START: 10,
             
             WHITE_KEY_HEIGHT: 180,
             WHITE_KEY_WIDTH: 1080 / 18, // 60
@@ -131,8 +145,8 @@
             WHITE: '#ffffff',
             BLACK: '#1f2937',
             // Blue colors
-            HIGHLIGHT_WHITE: '#3b82f6', 
-            HIGHLIGHT_BLACK: '#2563eb' 
+            HIGHLIGHT_WHITE: '#3b82f6',
+            HIGHLIGHT_BLACK: '#2563eb'
         };
         
         // Piano Key Structure (for lookup only, not for drawing structure)
@@ -183,7 +197,12 @@
             } 
             // Check for uppercase (Major) or lowercase (minor) Roman numeral
             else if (romanNumeral === romanNumeral.toUpperCase()) {
-                qualityText = "Major";
+                // Check if it's the dominant (V) in major, which is often just 'Major'
+                if (state.isMajor && state.currentDegree === 5) {
+                    qualityText = "Dominant"; // Or just "Major"
+                } else {
+                    qualityText = "Major";
+                }
             } else {
                 qualityText = "minor";
             }
@@ -214,11 +233,13 @@
             const scaleDegreeIndex = degree - 1; 
 
             // 1. Determine the CHORD ROOT MIDI note
-            // Base MIDI is C4 (60) + the key's index (0 for C, 1 for C#, etc.)
-            const tonicMidiInStartingOctave = START_MIDI + keyIndex; 
+            // Base MIDI is C4 (60). We want the I chord to start roughly in the middle octave (C4).
+            const tonicMidiInStartingOctave = 60; // Always start C at C4
 
             // The root of the current chord moves up the keyboard diatonic-step by diatonic-step.
-            const rootMidi = tonicMidiInStartingOctave + scaleIntervals[scaleDegreeIndex];
+            // We use the root key index (e.g., +0 for C, +1 for C#, etc.) 
+            // and the interval of the degree (e.g., +4 semitones for III in C Major)
+            const rootMidi = tonicMidiInStartingOctave + keyIndex + scaleIntervals[scaleDegreeIndex];
             
             // 2. Calculate the semitone distance of the 3rd and 5th relative to the CHORD ROOT.
             const tonicIntervals = [
@@ -230,7 +251,7 @@
             let semitoneOffsets = [0]; 
 
             let thirdInterval = tonicIntervals[1] - tonicIntervals[0];
-            if (thirdInterval < 0) thirdInterval += 12; // Handle octave wrap
+            if (thirdInterval < 0) thirdInterval += 12; // Handle octave wrap (e.g., when the 3rd is the next octave's note)
             semitoneOffsets.push(thirdInterval);
 
             let fifthInterval = tonicIntervals[2] - tonicIntervals[0];
@@ -240,7 +261,8 @@
             // 3. Build the final triad MIDI notes
             const triadMidiNotes = semitoneOffsets.map(offset => rootMidi + offset);
 
-            return triadMidiNotes;
+            // Filter out notes outside our visible keyboard range (START_MIDI to END_MIDI)
+            return triadMidiNotes.filter(midi => midi >= START_MIDI && midi <= END_MIDI);
         }
 
         // --- SVG RENDERING LOGIC ---
@@ -264,8 +286,76 @@
             if (isWhiteKey) {
                 return whiteKeyCount * WKW;
             } else {
-                // Black key position is centered over the boundary between the white key to its left and the white key to its right.
-                return (whiteKeyCount * WKW) - (BKW / 2);
+                // Position black key relative to the start of the first white key it sits on top of
+                // C# (61) sits on C (60). White key count for 60 is 0. Position is 0*WKW + offset.
+                // The black keys are centered over the boundary, but positioned using the left white key's edge.
+                let whiteKeysBefore = 0;
+                for (let i = START_MIDI; i <= absoluteIndex; i++) {
+                     if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) whiteKeysBefore++;
+                }
+                // Black key position: start of the white key *after* it, minus half the black key width.
+                // Special handling for the position on C, D, F, G, A
+                // C# is at the edge of the C key. D# is at the edge of the D key.
+                const whiteKeyIndex = whiteKeysBefore; // The index of the white key to the left
+                
+                // Fine-tuned offsets for black keys relative to the white keys:
+                // C#: -0.5 key width from D key start (WKW * 1)
+                // D#: -0.5 key width from E key start (WKW * 2)
+                // F#: -0.5 key width from G key start (WKW * 3)
+                // G#: -0.5 key width from A key start (WKW * 4)
+                // A#: -0.5 key width from B key start (WKW * 5)
+
+                // This logic is complex. The original method was more direct:
+                // Position is based on the number of white keys before it, minus half the black key width.
+                // whiteKeyCount already calculated white keys *before* the current note.
+                return (whiteKeyCount * WKW) + WKW - (BKW / 2) - 1.5 * WKW;
+            }
+        }
+
+        // The previous getKeyXPosition logic was slightly off for black keys.
+        // Let's use a standard implementation that is less complex:
+        function getWhiteKeyIndex(midi) {
+            let whiteKeyIndex = 0;
+            for (let i = START_MIDI; i < midi; i++) {
+                if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) {
+                    whiteKeyIndex++;
+                }
+            }
+            return whiteKeyIndex;
+        }
+
+        function getKeyXPositionRevised(midi) {
+            const pitchClass = midi % 12;
+            const isWhiteKey = [0, 2, 4, 5, 7, 9, 11].includes(pitchClass);
+            const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
+            const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
+
+            const whiteKeyIndex = getWhiteKeyIndex(midi);
+
+            if (isWhiteKey) {
+                return whiteKeyIndex * WKW;
+            } else {
+                // Black keys are placed relative to the white key *to its left*.
+                // Black key positions (relative to C):
+                // C#: Over C/D boundary. White key index is C's index. Offset: WKW - BKW/2
+                // D#: Over D/E boundary. White key index is D's index. Offset: 2*WKW - BKW/2
+                
+                // The white key index *before* the black key:
+                let baseWhiteIndex = whiteKeyIndex; 
+                
+                switch (pitchClass) {
+                    case 1: // C# / Db
+                    case 3: // D# / Eb
+                    case 6: // F# / Gb
+                    case 8: // G# / Ab
+                    case 10: // A# / Bb
+                        // The position is based on the edge of the white key to its left.
+                        // We need the number of white keys *before* this black key.
+                        return baseWhiteIndex * WKW + WKW - (BKW / 2);
+                    default:
+                        // This case should not be hit for black keys, but as a fallback:
+                        return baseWhiteIndex * WKW;
+                }
             }
         }
         
@@ -284,12 +374,12 @@
             const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
             const WKH = KEYBOARD_CONFIG.WHITE_KEY_HEIGHT;
             const Y_START = KEYBOARD_CONFIG.KEY_Y_START;
-
+            
             // 1. Draw White Keys first
             PIANO_KEY_DATA.forEach(key => {
                 if (key.isWhite) {
                     const isHighlighted = highlightedMidiNotes.includes(key.midi); 
-                    const x = getKeyXPosition(key.midi);
+                    const x = getWhiteKeyIndex(key.midi) * WKW; // Simpler positioning for white keys
 
                     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                     rect.setAttribute('x', x);
@@ -307,11 +397,14 @@
 
                     // --- Labeling Logic for White Keys ---
                     let labelText = null;
-                    let labelFill = '#4b5563'; 
+                    let labelFill = isHighlighted ? KEY_COLORS.WHITE : '#4b5563'; 
 
                     if (isHighlighted) {
-                        labelText = key.name;
-                        labelFill = KEY_COLORS.WHITE; 
+                        // Display the root note of the chord on the key
+                        const rootPitchClass = state.triadPitchClasses[0];
+                        if (key.pitchClass === rootPitchClass) {
+                            labelText = KEYS[rootPitchClass]; // Show root name only on the root key
+                        }
                     } else if (key.name === 'C' || key.name === 'F') {
                         // Octave calculation: (MIDI / 12) - 1. E.g., C4 (60) -> (60/12)-1 = 4
                         labelText = `${key.name}${Math.floor(key.midi / 12) - 1}`;
@@ -335,7 +428,22 @@
             PIANO_KEY_DATA.forEach(key => {
                 if (!key.isWhite) {
                     const isHighlighted = highlightedMidiNotes.includes(key.midi);
-                    const x = getKeyXPosition(key.midi);
+                    
+                    // Black keys are tricky. Determine the index of the white key to the left.
+                    const leftWhiteKeyMidi = key.midi - 1;
+                    let whiteKeyIndex = getWhiteKeyIndex(leftWhiteKeyMidi);
+
+                    // Offset the black key X position relative to the left white key's edge:
+                    let xOffset = 0;
+                    switch (key.pitchClass) {
+                        case 1: xOffset = WKW - (BKW / 2); break; // C# / Db (Over C)
+                        case 3: xOffset = WKW - (BKW / 2); break; // D# / Eb (Over D)
+                        case 6: xOffset = WKW - (BKW / 2); break; // F# / Gb (Over F)
+                        case 8: xOffset = WKW - (BKW / 2); break; // G# / Ab (Over G)
+                        case 10: xOffset = WKW - (BKW / 2); break; // A# / Bb (Over A)
+                    }
+
+                    const x = (whiteKeyIndex * WKW) + xOffset - WKW * 0.5; // Final adjustment for centering
 
                     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                     rect.setAttribute('x', x);
@@ -368,28 +476,30 @@
             const pianoContainer = document.getElementById('piano-container');
             
             // --- CONDITIONAL SCROLLING LOGIC ---
-            if (state.isCenteringEnabled) {
-                // Centering is enabled: calculate scroll position to center the chord's third
-                const centerMidi = state.triadMidiNotes.length > 1 ? state.triadMidiNotes[1] : START_MIDI; 
+            if (state.isCenteringEnabled && state.triadMidiNotes.length > 0) {
+                // Centering is enabled: calculate scroll position to center the chord's root (first note)
+                const centerMidi = state.triadMidiNotes[0]; 
                 
                 let centerScrollX = 0;
                 const centerKeyData = PIANO_KEY_DATA.find(k => k.midi === centerMidi);
                 
                 if (centerKeyData) {
-                    const centerKeyX = getKeyXPosition(centerKeyData.midi);
+                    // Use the original X position calculation for centering simplicity
+                    const centerKeyX = centerKeyData.isWhite ? getWhiteKeyIndex(centerKeyData.midi) * WKW : getKeyXPositionRevised(centerKeyData.midi);
                     const containerWidth = pianoContainer.offsetWidth;
                     
                     const keyWidth = centerKeyData.isWhite ? WKW : BKW;
                     centerScrollX = centerKeyX - (containerWidth / 2) + (keyWidth / 2);
 
                     centerScrollX = Math.max(0, centerScrollX);
+                    // Prevent scrolling past the far right
                     centerScrollX = Math.min(KEYBOARD_CONFIG.KEYBOARD_WIDTH - containerWidth, centerScrollX);
                 }
                 
                 requestAnimationFrame(() => {
                     pianoContainer.scrollLeft = centerScrollX;
                 });
-            } else {
+            } else if (!state.isCenteringEnabled) {
                 // Centering is disabled: keep the scroll position at the far left (Fixed)
                 requestAnimationFrame(() => {
                     pianoContainer.scrollLeft = 0;
@@ -409,11 +519,11 @@
             const minorBtn = document.getElementById('minor-mode-btn');
 
             if (state.isMajor) {
-                majorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-blue-500 text-white hover:bg-blue-600';
-                minorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-white text-gray-700 hover:bg-gray-100 border border-gray-300';
+                majorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700';
+                minorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300';
             } else {
-                majorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-white text-gray-700 hover:bg-gray-100 border border-gray-300';
-                minorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-blue-500 text-white hover:bg-blue-600';
+                majorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 border border-gray-300';
+                minorBtn.className = 'flex-1 py-3 px-4 rounded-lg font-bold transition duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700';
             }
         }
 
@@ -429,8 +539,8 @@
                     <button onclick="handleDegreeChange(${degree})"
                             class="py-3 px-2 rounded-lg font-extrabold text-lg transition duration-200 shadow-lg 
                             ${isActive 
-                                ? 'bg-blue-600 text-white ring-4 ring-blue-300 transform scale-105' 
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-blue-700 text-white ring-4 ring-blue-300 transform scale-105' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-300'
                             }">
                         ${quality}
                     </button>
@@ -487,10 +597,111 @@
         }
 
 
-        // --- INITIALIZATION ---
+        // --- PWA INITIALIZATION ---
+        
+        function registerPwa() {
+            // 1. Service Worker Definition (Caching)
+            const swCode = `
+                const CACHE_NAME = 'theoryviz-v1';
+                // Cache the main application file (this HTML page)
+                const urlsToCache = ['./'];
+
+                self.addEventListener('install', (event) => {
+                    console.log('[Service Worker] Installing...');
+                    self.skipWaiting();
+                    event.waitUntil(
+                        caches.open(CACHE_NAME)
+                            .then((cache) => {
+                                console.log('[Service Worker] Caching app shell');
+                                return cache.addAll(urlsToCache);
+                            })
+                            .catch(err => console.error('[Service Worker] Caching failed:', err))
+                    );
+                });
+
+                self.addEventListener('activate', (event) => {
+                    console.log('[Service Worker] Activating...');
+                    const cacheWhitelist = [CACHE_NAME];
+                    event.waitUntil(
+                        caches.keys().then((cacheNames) => {
+                            return Promise.all(
+                                cacheNames.map((cacheName) => {
+                                    if (cacheWhitelist.indexOf(cacheName) === -1) {
+                                        console.log('[Service Worker] Deleting old cache:', cacheName);
+                                        return caches.delete(cacheName);
+                                    }
+                                })
+                            );
+                        })
+                    );
+                });
+
+                self.addEventListener('fetch', (event) => {
+                    // Cache-first strategy for the app shell
+                    event.respondWith(
+                        caches.match(event.request, { ignoreSearch: true })
+                            .then((response) => {
+                                // Cache hit - return response
+                                if (response) {
+                                    return response;
+                                }
+                                // Fallback to network (important for Tailwind CSS CDN)
+                                return fetch(event.request);
+                            })
+                    );
+                });
+            `;
+            
+            // 2. Register Service Worker using a Blob URL
+            if ('serviceWorker' in navigator) {
+                try {
+                    const swBlob = new Blob([swCode], { type: 'application/javascript' });
+                    const swUrl = URL.createObjectURL(swBlob);
+                    
+                    navigator.serviceWorker.register(swUrl, { scope: './' })
+                        .then(registration => {
+                            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                        })
+                        .catch(err => {
+                            console.error('ServiceWorker registration failed: ', err);
+                        });
+                } catch (error) {
+                    console.error('Failed to create Service Worker Blob:', error);
+                }
+            }
+
+            // 3. Web App Manifest Definition
+            const manifestContent = {
+                "name": "TheoryViz",
+                "short_name": "TheoryViz",
+                "description": "Visualize music harmony and chords on a piano keyboard.",
+                "start_url": "./",
+                "display": "standalone",
+                "orientation": "portrait",
+                "background_color": "#ffffff",
+                "theme_color": "#3b82f6",
+                "icons": [
+                    {"src": "https://placehold.co/192x192/3b82f6/ffffff?text=TV", "sizes": "192x192", "type": "image/png"},
+                    {"src": "https://placehold.co/512x512/3b82f6/ffffff?text=TV", "sizes": "512x512", "type": "image/png"}
+                ]
+            };
+
+            // 4. Create Manifest Data URI and link it
+            const manifestBlob = new Blob([JSON.stringify(manifestContent)], {type : 'application/json'});
+            const manifestUrl = URL.createObjectURL(manifestBlob);
+            
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestUrl;
+            document.head.appendChild(link);
+            
+            console.log('Manifest linked successfully.');
+        }
+
+        // --- APPLICATION STARTUP ---
         
         window.onload = () => {
-             // Re-initialize PIANO_KEY_DATA with the new MIDI range
+            // Re-initialize PIANO_KEY_DATA (already done at the top but re-running just in case)
              PIANO_KEY_DATA.length = 0;
              for (let i = START_MIDI; i <= END_MIDI; i++) {
                  PIANO_KEY_DATA.push({
@@ -501,6 +712,7 @@
                  });
              }
              updateUI();
+             registerPwa(); // Call PWA registration on load
         };
 
         window.addEventListener('resize', updateUI); 
