@@ -98,20 +98,13 @@
                 </button>
             </div>
         </div>
-
-        <!-- Current Key Selection Display (Simplified) -->
-        <div class="mt-6 mb-4 text-center">
-            <p class="text-xl font-semibold text-gray-700">Current Key & Mode:</p>
-            <h2 id="current-key-display" class="text-4xl font-extrabold text-blue-600 mt-1">
-                <!-- e.g., Key of C - Ionian (Major) -->
-            </h2>
-        </div>
         
-        <!-- Detailed Highlight Display (Above Keyboard) -->
-        <div class="mb-4 py-3 px-4 bg-blue-50 text-blue-800 rounded-lg shadow-inner border border-blue-200 text-center">
-            <p class="text-base font-semibold" id="detailed-highlight-display">
-                <!-- Detailed note/chord name will go here -->
-            </p>
+        <!-- CONSOLIDATED DISPLAY -->
+        <div id="consolidated-display" class="mb-4 py-3 px-4 bg-blue-50 text-blue-800 rounded-lg shadow-inner border border-blue-200 text-center">
+            <!-- Content populated by JS: 
+                 <p class="text-lg font-bold">Selected: C Maj (I) (Root Position)</p>
+                 <p class="text-sm font-medium opacity-90">Key of C - Ionian (Major)</p>
+            -->
         </div>
 
         <!-- Piano Keyboard Container (Handles Scrolling for both steps and keys) -->
@@ -123,9 +116,9 @@
             <svg id="piano-keyboard-svg" width="100%" height="200" preserveAspectRatio="xMinYMin slice"></svg>
         </div>
         
-        <!-- Simplified Inversion Interaction Tip (Below Keyboard, Above Buttons) -->
-        <div class="mt-4 mb-6 py-2 px-3 bg-blue-100/50 border border-blue-200/80 text-blue-800 text-sm rounded-lg text-center font-medium">
-            Click the **active** Roman numeral to cycle inversions (Root, 1st, 2nd) in Chord View.
+        <!-- ENHANCED INVERSION INTERACTION TIP -->
+        <div class="mt-4 mb-6 py-3 px-4 bg-yellow-100 border-2 border-yellow-400 text-yellow-800 text-sm rounded-lg text-center font-bold shadow-md">
+            Click the <span class="text-blue-700 font-extrabold">ACTIVE</span> Roman numeral to cycle **INVERSIONS** (Root, 1st, 2nd) in Chord View.
         </div>
 
         <!-- Chord Buttons (Scale Degree Selector) -->
@@ -213,8 +206,12 @@
         const KEY_COLORS = {
             WHITE: '#ffffff',
             BLACK: '#1f2937',
-            HIGHLIGHT_WHITE: '#3b82f6',
-            HIGHLIGHT_BLACK: '#2563eb'
+            HIGHLIGHT_WHITE: '#3b82f6',     // Blue for Root/Scale
+            HIGHLIGHT_BLACK: '#2563eb',     // Darker Blue for Root/Scale
+            
+            // Inverted colors (matching the indigo button)
+            INVERTED_HIGHLIGHT_WHITE: '#4f46e5', // Indigo-600
+            INVERTED_HIGHLIGHT_BLACK: '#4338ca'  // Indigo-700
         };
         
         const PIANO_KEY_DATA = [];
@@ -239,12 +236,12 @@
         }
 
         /**
-         * Gets the simplified name of the current key and mode (e.g., "C Major").
+         * Gets the simplified name of the current key and mode (e.g., "Key of C - Ionian (Major)").
          */
         function getSimplifiedKeyName() {
             const rootName = KEYS[state.currentKeyIndex];
             const modeName = getCurrentMode().name;
-            return `${rootName} - ${modeName}`;
+            return `Key of ${rootName} - ${modeName}`;
         }
 
 
@@ -286,8 +283,8 @@
                     inversionText = '2nd Inversion / 6/4';
                 }
 
-                // Return format: Chord selected: CMaj (I) (Root Position)
-                return `Chord selected: ${highlightRootName}${quality} (${romanNumeral}) (${inversionText})`;
+                // Selected: prefix
+                return `Selected: ${highlightRootName}${quality} (${romanNumeral}) (${inversionText})`;
             } else {
                 // Note selected: C (1st)
                 let degreeText;
@@ -303,8 +300,8 @@
                     degreeText = `${degree}th`;
                 }
                 
-                // Return format: Note selected: ${highlightRootName} (${degreeText})
-                return `Note selected: ${highlightRootName} (${degreeText})`;
+                // Selected: prefix
+                return `Selected: ${highlightRootName} (${degreeText})`;
             }
         }
 
@@ -526,6 +523,13 @@
             const WKH = KEYBOARD_CONFIG.WHITE_KEY_HEIGHT;
             const Y_START = KEYBOARD_CONFIG.KEY_Y_START;
             
+            // Determine which highlight color set to use
+            const useInvertedColors = state.visualizationMode === 'chord' && state.currentInversion > 0;
+            
+            const whiteHighlightColor = useInvertedColors ? KEY_COLORS.INVERTED_HIGHLIGHT_WHITE : KEY_COLORS.HIGHLIGHT_WHITE;
+            const blackHighlightColor = useInvertedColors ? KEY_COLORS.INVERTED_HIGHLIGHT_BLACK : KEY_COLORS.HIGHLIGHT_BLACK;
+
+
             // 1. Draw White Keys first
             PIANO_KEY_DATA.forEach(key => {
                 if (key.isWhite) {
@@ -541,7 +545,7 @@
                     rect.setAttribute('ry', 4);
                     rect.setAttribute('stroke', '#a1a1ae');
                     rect.setAttribute('stroke-width', '1');
-                    rect.setAttribute('fill', isHighlighted ? KEY_COLORS.HIGHLIGHT_WHITE : KEY_COLORS.WHITE);
+                    rect.setAttribute('fill', isHighlighted ? whiteHighlightColor : KEY_COLORS.WHITE);
                     rect.classList.add('highlight-transition'); 
                     
                     svg.appendChild(rect);
@@ -587,7 +591,7 @@
                     rect.setAttribute('ry', 3);
                     rect.setAttribute('stroke', '#000000');
                     rect.setAttribute('stroke-width', '1');
-                    rect.setAttribute('fill', isHighlighted ? KEY_COLORS.HIGHLIGHT_BLACK : KEY_COLORS.BLACK);
+                    rect.setAttribute('fill', isHighlighted ? blackHighlightColor : KEY_COLORS.BLACK);
                     rect.classList.add('highlight-transition'); 
 
                     svg.appendChild(rect);
@@ -731,6 +735,7 @@
                 const isActive = degree === state.currentDegree;
                 
                 const qualityIndex = index; 
+                const isInvrted = isActive && state.currentInversion > 0; // Flag for inverted state
 
                 let inversionSuffix = '';
                 let qualityDisplay = '';
@@ -751,16 +756,23 @@
                     }
                     secondaryButtonText = `${qualityDisplay}${inversionSuffix}`;
                 }
+                
+                let buttonClasses = 'bg-gray-100 text-gray-700 hover:bg-gray-300 shadow-sm';
+
+                if (isActive && !isInvrted) {
+                    // Active, Root Position
+                    buttonClasses = 'bg-blue-700 text-white ring-4 ring-blue-300 transform scale-105 shadow-xl';
+                } else if (isInvrted) {
+                    // Active, INVERTED Position: Use strong contrasting style (Indigo + Yellow ring)
+                    buttonClasses = 'bg-indigo-600 text-white ring-4 ring-yellow-400 transform scale-105 shadow-2xl border-2 border-white';
+                }
 
 
                 return `
                     <button onclick="handleDegreeChange(${degree})"
-                            class="py-3 px-2 rounded-lg font-extrabold transition duration-200 shadow-lg 
+                            class="py-3 px-2 rounded-lg font-extrabold transition duration-200 
                             flex flex-col items-center justify-center min-h-20
-                            ${isActive 
-                                ? 'bg-blue-700 text-white ring-4 ring-blue-300 transform scale-105' 
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-300'
-                            }">
+                            ${buttonClasses}"> 
                         <span class="text-xl">${mainButtonText}</span>
                         <span class="text-xs font-medium opacity-80">${secondaryButtonText}</span>
                     </button>
@@ -769,17 +781,17 @@
         }
 
         /**
-         * Renders the simplified key/mode name for the large display above the controls.
+         * Renders the consolidated display block above the keyboard.
          */
-        function renderKeyName() {
-            document.getElementById('current-key-display').textContent = getSimplifiedKeyName();
-        }
+        function renderConsolidatedDisplay() {
+            const display = document.getElementById('consolidated-display');
+            const detailedText = getDetailedHighlightName();
+            const keyModeText = getSimplifiedKeyName();
 
-        /**
-         * Renders the detailed highlight name for the smaller display above the keyboard.
-         */
-        function renderDetailedHighlight() {
-            document.getElementById('detailed-highlight-display').textContent = getDetailedHighlightName();
+            display.innerHTML = `
+                <p class="text-lg font-bold">${detailedText}</p>
+                <p class="text-sm font-medium opacity-90 mt-1">${keyModeText}</p>
+            `;
         }
         
         // --- HANDLERS ---
@@ -821,8 +833,7 @@
             // Render UI components
             renderKeySelect();
             renderChordButtons();
-            renderKeyName(); // Renders the simplified key/mode at the top
-            renderDetailedHighlight(); // Renders the detailed chord/degree name above the keyboard
+            renderConsolidatedDisplay(); // Renders both key/mode and highlight in one go
             renderStepVisualizer(); 
             renderVisualizationModeButtons(); // Updates button active states
             drawKeyboard(); 
