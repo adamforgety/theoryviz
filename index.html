@@ -109,8 +109,8 @@
 
         <!-- Piano Keyboard Container (Handles Scrolling for both steps and keys) -->
         <div id="piano-container" class="keyboard-container overflow-x-scroll pb-4 mt-4">
-            <!-- New track for whole/half step visualization. It must have the exact width of the SVG (1080px) to scroll correctly. -->
-            <div id="step-visualizer-track" style="width: 1080px; position: relative; height: 30px;" class="mt-1 mb-1">
+            <!-- New track for whole/half step visualization. It must have the exact width of the SVG to scroll correctly. -->
+            <div id="step-visualizer-track" style="width: 1320px; position: relative; height: 30px;" class="mt-1 mb-1">
                 <!-- Step indicators will be absolutely positioned here by JS -->
             </div>
             <svg id="piano-keyboard-svg" width="100%" height="200" preserveAspectRatio="xMinYMin slice"></svg>
@@ -186,20 +186,20 @@
             }
         };
         
-        // MIDI note range for the visual keyboard: C4 (60) to F6 (89) -> 30 keys (3 octaves)
-        const START_MIDI = 60; // C4 (Middle C)
-        const END_MIDI = 89;   // F6
+        // MIDI note range updated: B3 (59) to B6 (95) - 37 keys total
+        const START_MIDI = 59; // B3
+        const END_MIDI = 95;   // B6 
         
         // --- SVG KEYBOARD CONFIGURATION ---
         const KEYBOARD_CONFIG = {
-            TOTAL_KEYS_RANGE: END_MIDI - START_MIDI + 1, 
-            WHITE_KEYS_COUNT: 18,
-            KEYBOARD_WIDTH: 1080,
+            TOTAL_KEYS_RANGE: END_MIDI - START_MIDI + 1, // 37 keys
+            WHITE_KEYS_COUNT: 22, // B3, C4, D4, E4, F4, G4, A4, B4, C5, ... B6
+            KEYBOARD_WIDTH: 1320, // 22 white keys * 60px/key
             KEYBOARD_HEIGHT: 200,
             KEY_Y_START: 10,
             WHITE_KEY_HEIGHT: 180,
-            WHITE_KEY_WIDTH: 1080 / 18, 
-            BLACK_KEY_WIDTH: (1080 / 18) * 0.6, 
+            WHITE_KEY_WIDTH: 1320 / 22, // 60px
+            BLACK_KEY_WIDTH: (1320 / 22) * 0.6, // 36px
             BLACK_KEY_HEIGHT: 110,
         };
 
@@ -305,7 +305,6 @@
             }
         }
 
-
         /**
          * Calculates the specific MIDI notes for the selected chord, applying the current inversion.
          */
@@ -315,8 +314,16 @@
             
             const octaveShift = (degree === 8) ? 12 : 0;
             const scaleDegreeIndex = (degree === 8) ? 0 : degree - 1; 
-            
-            const tonicMidiInStartingOctave = 60; 
+
+            // --- NEW LOGIC: Determine the base MIDI for the Tonic (Root Key) of the scale ---
+            // We want the tonic to start as low as possible on the keyboard (B3 to A#4 range)
+            let tonicMidi;
+            if (keyIndex === 11) { // B key (Index 11)
+                tonicMidi = 59; // B3
+            } else {
+                tonicMidi = 60 + keyIndex; // C4 (60) up to A#4 (70)
+            }
+            // --- END NEW LOGIC ---
 
             if (!mode.isDiatonic || mode.intervals.length < 7 || state.visualizationMode === 'scale') {
                  return calculateSingleScaleMidiNote(keyIndex, degree);
@@ -325,7 +332,8 @@
             const stepsInChord = mode.chordSteps; 
             
             const rootIntervalFromTonic = scaleIntervals[scaleDegreeIndex];
-            const lowestRootMidi = tonicMidiInStartingOctave + keyIndex + rootIntervalFromTonic;
+            // The lowest MIDI note of the chord, based on the scale's root (tonicMidi) and the degree offset
+            const lowestRootMidi = tonicMidi + rootIntervalFromTonic;
             
             const scaleLength = mode.intervals.length; 
             
@@ -376,9 +384,16 @@
                 }
             }
 
-            const tonicMidiInStartingOctave = 60; 
+            // --- NEW LOGIC: Determine the base MIDI for the Tonic (Root Key) of the scale ---
+            let tonicMidi;
+            if (keyIndex === 11) { // B key (Index 11)
+                tonicMidi = 59; // B3
+            } else {
+                tonicMidi = 60 + keyIndex; // C4 (60) up to A#4 (70)
+            }
+            // --- END NEW LOGIC ---
 
-            const rootMidi = tonicMidiInStartingOctave + keyIndex + intervalOffset;
+            const rootMidi = tonicMidi + intervalOffset;
             
             return [rootMidi].filter(midi => midi >= START_MIDI && midi <= END_MIDI);
         }
@@ -386,12 +401,13 @@
         // --- RENDERING FUNCTIONS ---
         
         /**
-         * Calculates the 0-based index of a white key, counting from START_MIDI (C4).
+         * Calculates the 0-based index of a white key, counting from START_MIDI (B3).
          */
         function getWhiteKeyIndex(midi) {
             let count = 0;
             for (let i = START_MIDI; i <= midi; i++) {
-                 if ([0, 2, 4, 5, 7, 9, 11].includes(i % 12)) {
+                 // Check if pitch class is a white key (C=0, D=2, E=4, F=5, G=7, A=9, B=11)
+                 if (MAJOR_INTERVALS.includes(i % 12)) {
                      count++;
                  }
             }
@@ -403,7 +419,7 @@
          */
         function getKeyXPosition(midi) {
             const pitchClass = midi % 12;
-            const isWhiteKey = [0, 2, 4, 5, 7, 9, 11].includes(pitchClass);
+            const isWhiteKey = MAJOR_INTERVALS.includes(pitchClass);
             const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
             const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
 
@@ -412,6 +428,7 @@
             if (isWhiteKey) {
                 return whiteKeyIndex * WKW;
             } else {
+                // Black keys are positioned relative to the white key to their immediate left (which is midi - 1)
                 const leftWhiteKeyIndex = getWhiteKeyIndex(midi - 1);
                 const leftWhiteKeyX = leftWhiteKeyIndex * WKW;
                 const seamX = leftWhiteKeyX + WKW;
@@ -425,7 +442,7 @@
         function getKeyCenterX(midi) {
             const pitchClass = midi % 12;
             const x = getKeyXPosition(midi);
-            const isWhite = [0, 2, 4, 5, 7, 9, 11].includes(pitchClass);
+            const isWhite = MAJOR_INTERVALS.includes(pitchClass);
             const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
             const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
             return x + (isWhite ? WKW / 2 : BKW / 2);
@@ -447,12 +464,19 @@
             const scaleSteps = mode.steps;
             const scaleIntervals = mode.intervals;
             
-            const referenceMidi = START_MIDI + state.currentKeyIndex;
+            // Determine the base MIDI for the Tonic (Root Key) of the scale
+            let tonicMidi;
+            if (state.currentKeyIndex === 11) { // B key (Index 11)
+                tonicMidi = 59; // B3
+            } else {
+                tonicMidi = 60 + state.currentKeyIndex; // C4 (60) up to A#4 (70)
+            }
+
 
             for (let i = 0; i < scaleSteps.length; i++) { 
                 const step = scaleSteps[i];
                 
-                const currentNoteMidi = referenceMidi + scaleIntervals[i];
+                const currentNoteMidi = tonicMidi + scaleIntervals[i];
 
                 let stepInSemitones;
                 if (i === scaleSteps.length - 1) {
@@ -464,6 +488,9 @@
                 if (stepInSemitones <= 0) continue; 
 
                 const nextNoteMidi = currentNoteMidi + stepInSemitones;
+                
+                // Ensure we don't try to draw steps for notes outside the rendered range
+                if (currentNoteMidi < START_MIDI || nextNoteMidi > END_MIDI) continue;
 
                 const x1 = getKeyCenterX(currentNoteMidi);
                 const x2 = getKeyCenterX(nextNoteMidi);
@@ -514,6 +541,7 @@
             const svg = document.getElementById('piano-keyboard-svg');
             const highlightedMidiNotes = state.highlightedMidiNotes; 
             
+            // Set SVG size based on new calculated width (1320px)
             svg.setAttribute('width', `${KEYBOARD_CONFIG.KEYBOARD_WIDTH}px`);
             svg.setAttribute('viewBox', `0 0 ${KEYBOARD_CONFIG.KEYBOARD_WIDTH} ${KEYBOARD_CONFIG.KEYBOARD_HEIGHT}`);
             svg.innerHTML = ''; 
@@ -553,12 +581,15 @@
                     // --- Labeling Logic for White Keys ---
                     let labelText = null;
                     let labelFill = isHighlighted ? KEY_COLORS.WHITE : '#4b5563'; 
+                    
+                    // Calculate Octave for display: 
+                    const octave = Math.floor(key.midi / 12) - 1;
 
                     if (isHighlighted) {
                          labelText = key.name;
-                    } else if (key.name === 'C' || key.name === 'F') {
-                        // Label C4, F4, C5, F5, etc.
-                        labelText = `${key.name}${Math.floor(key.midi / 12) - 1}`;
+                    } else if (key.name === 'C' || key.name === 'F' || key.name === 'B') {
+                        // Label C, F, B keys (for easier reference)
+                        labelText = `${key.name}${octave}`;
                     }
 
                     if (labelText) {
