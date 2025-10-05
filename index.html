@@ -16,18 +16,12 @@
             position: relative;
             /* Height remains 250px to accommodate the step visualizer track */
             height: 250px; 
-            margin-top: 20px;
             border-radius: 0.5rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             /* Light gray for contrast against the white keys */
             background-color: #f3f4f6;
-            overflow-x: scroll; /* Keeps the keyboard scrollable */
+            overflow-x: scroll; /* KEEP scroll to allow the fixed width content to be scrolled */
             overscroll-behavior: contain; /* Prevents unwanted browser scroll on mobile drag */
-        }
-
-        /* Highlighting Styles for a consistent look with the buttons */
-        .highlight-transition {
-            transition: fill 0.2s ease;
         }
 
         /* Hide scrollbar for a cleaner look, while still allowing scroll */
@@ -38,36 +32,20 @@
             -ms-overflow-style: none;  /* IE and Edge */
             scrollbar-width: none;  /* Firefox */
         }
-        
-        /* Specific highlight for the active NOTE (solid fill) */
-        .note-block-active {
-            background-color: #3b82f6 !important; /* bg-blue-500 */
-            color: white !important;
-            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5); /* shadow-lg with blue tint */
-            transform: scale(1.12);
-            border-color: #3b82f6 !important; /* Set border to match background */
+
+        /* Highlighting Styles for a consistent look with the buttons */
+        .highlight-transition {
+            transition: fill 0.2s ease;
         }
 
-        /* Custom style for segmented control buttons */
-        .segmented-btn {
-            border-radius: 0.375rem; /* rounded-md */
+        /* Custom style for visualization buttons (Removed .active style to use pure Tailwind in JS) */
+        .viz-btn {
+            border-radius: 0.5rem;
             transition: all 0.2s;
             font-weight: 600; /* font-semibold */
-        }
-        .segmented-btn.active {
-            background-color: #3b82f6; /* blue-600 */
-            color: white;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            position: relative;
-            z-index: 10;
-        }
-        .segmented-btn:first-child {
-            border-top-right-radius: 0;
-            border-bottom-right-radius: 0;
-        }
-        .segmented-btn:last-child {
-            border-top-left-radius: 0;
-            border-bottom-left-radius: 0;
+            padding-top: 0.625rem; /* py-2.5 */
+            padding-bottom: 0.625rem; /* py-2.5 */
+            border-width: 1px; /* Ensure border is present for both states */
         }
 
     </style>
@@ -82,58 +60,62 @@
             Visualize harmony anywhere!
         </p>
 
-        <!-- CONSOLIDATED CONTROL PANEL -->
+        <!-- CONSOLIDATED CONTROL PANEL (Two-Column Grid Layout) -->
         <div class="p-4 bg-gray-100 rounded-xl mb-6 shadow-inner border border-gray-200">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Strict 2-column grid layout for maximum compactness -->
+            <div class="grid grid-cols-2 gap-4">
             
-                <!-- 1. Key Selection -->
-                <div class="w-full">
-                    <label for="key-select" class="block text-sm font-medium text-gray-700 mb-1">Root Key</label>
+                <!-- 1. Root Key Selection (Top Left) -->
+                <div>
+                    <label for="key-select" class="block text-xs font-medium text-gray-700 mb-1">Root Key</label>
                     <select id="key-select" onchange="handleKeyChange(event.target.value)"
-                            class="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
+                            class="w-full p-2 border border-gray-300 rounded-lg bg-white text-gray-800 text-sm focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
                         <!-- Options populated by JS -->
                     </select>
                 </div>
 
-                <!-- 2. Mode Selection (Type) -->
-                <div class="w-full">
-                    <label for="mode-select" class="block text-sm font-medium text-gray-700 mb-1">Scale Type</label>
+                <!-- 2. Mode Selection (Top Right) -->
+                <div>
+                    <label for="mode-select" class="block text-xs font-medium text-gray-700 mb-1">Scale Type</label>
                     <select id="mode-select" onchange="handleModeChange(event.target.value)"
-                            class="w-full p-3 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
+                            class="w-full p-2 border border-gray-300 rounded-lg bg-white text-gray-800 text-sm focus:ring-blue-500 focus:border-blue-500 shadow-sm transition">
                         <!-- Options populated by JS -->
                     </select>
                 </div>
+
+                <!-- 3. Chord View Button (Bottom Left) -->
+                <!-- Classes are managed by JS for active/inactive state -->
+                <button id="mode-chord-btn" onclick="handleVisualizationModeChange('chord')"
+                        class="viz-btn w-full text-sm md:text-base">
+                    Chord View
+                </button>
                 
-                <!-- 3. Visualization Mode Toggle (Chord/Scale) -->
-                <div class="w-full">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Visualization</label>
-                    <div id="mode-toggle-container" class="flex w-full border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
-                        <!-- Buttons populated by JS -->
-                    </div>
-                </div>
+                <!-- 4. Scale View Button (Bottom Right) -->
+                <!-- Classes are managed by JS for active/inactive state -->
+                <button id="mode-scale-btn" onclick="handleVisualizationModeChange('scale')"
+                        class="viz-btn w-full text-sm md:text-base">
+                    Scale View
+                </button>
             </div>
         </div>
 
-        <!-- Current Chord/Note Name Display -->
+        <!-- Current Key Selection Display (Simplified) -->
         <div class="mt-6 mb-4 text-center">
-            <p class="text-xl font-semibold text-gray-700">Current Highlight:</p>
-            <h2 id="current-chord-display" class="text-4xl font-extrabold text-blue-600 mt-1">
-                <!-- Note and degree name will be displayed here, e.g., C Major (I) -->
+            <p class="text-xl font-semibold text-gray-700">Current Key & Mode:</p>
+            <h2 id="current-key-display" class="text-4xl font-extrabold text-blue-600 mt-1">
+                <!-- e.g., Key of C - Ionian (Major) -->
             </h2>
         </div>
         
-        <!-- Simplified Inversion Interaction Tip -->
-        <div class="mb-4 py-2 px-3 bg-blue-100/50 border border-blue-200/80 text-blue-800 text-sm rounded-lg text-center font-medium">
-            Click the **active** Roman numeral to cycle inversions (Root, 1st, 2nd) in Chord View.
-        </div>
-
-        <!-- Chord Buttons (Scale Degree Selector) -->
-        <div id="chord-buttons-container" class="mt-8 grid grid-cols-4 sm:grid-cols-7 gap-3">
-            <!-- Buttons will be dynamically generated here -->
+        <!-- Detailed Highlight Display (Above Keyboard) -->
+        <div class="mb-4 py-3 px-4 bg-blue-50 text-blue-800 rounded-lg shadow-inner border border-blue-200 text-center">
+            <p class="text-base font-semibold" id="detailed-highlight-display">
+                <!-- Detailed note/chord name will go here -->
+            </p>
         </div>
 
         <!-- Piano Keyboard Container (Handles Scrolling for both steps and keys) -->
-        <div id="piano-container" class="keyboard-container overflow-x-scroll pb-4">
+        <div id="piano-container" class="keyboard-container overflow-x-scroll pb-4 mt-4">
             <!-- New track for whole/half step visualization. It must have the exact width of the SVG (1080px) to scroll correctly. -->
             <div id="step-visualizer-track" style="width: 1080px; position: relative; height: 30px;" class="mt-1 mb-1">
                 <!-- Step indicators will be absolutely positioned here by JS -->
@@ -141,16 +123,14 @@
             <svg id="piano-keyboard-svg" width="100%" height="200" preserveAspectRatio="xMinYMin slice"></svg>
         </div>
         
-        <!-- Keyboard Scroll Toggle (Subtle placement below the keyboard) -->
-        <div class="mt-2 flex justify-center">
-            <div class="flex items-center p-1 bg-white border border-gray-300 rounded-full shadow-md">
-                <span class="text-xs font-medium text-gray-600 select-none mr-2 ml-1">Fixed Scroll</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="centering-toggle" class="sr-only peer" checked onchange="toggleCentering(event.target.checked)">
-                    <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-blue-500"></div>
-                </label>
-                <span class="text-xs font-medium text-blue-600 select-none ml-2 mr-1">Centering</span>
-            </div>
+        <!-- Simplified Inversion Interaction Tip (Below Keyboard, Above Buttons) -->
+        <div class="mt-4 mb-6 py-2 px-3 bg-blue-100/50 border border-blue-200/80 text-blue-800 text-sm rounded-lg text-center font-medium">
+            Click the **active** Roman numeral to cycle inversions (Root, 1st, 2nd) in Chord View.
+        </div>
+
+        <!-- Chord Buttons (Scale Degree Selector) -->
+        <div id="chord-buttons-container" class="grid grid-cols-4 sm:grid-cols-7 gap-3">
+            <!-- Buttons will be dynamically generated here -->
         </div>
         
     </div>
@@ -160,19 +140,11 @@
         const KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
         const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11]; 
         
-        // Inversion Options (kept for reference, though logic is in handleDegreeChange)
-        const INVERSION_OPTIONS = [
-            { value: 0, label: 'Root Position' },
-            { value: 1, label: 'First Inversion (6)' },
-            { value: 2, label: 'Second Inversion (6/4)' }
-        ];
-
         const SCALE_MODES = {
             'major': {
                 name: 'Ionian (Major)',
                 intervals: [0, 2, 4, 5, 7, 9, 11],
                 steps: ["W", "W", "H", "W", "W", "W", "H"],
-                // Degrees: I, ii, iii, IV, V, vi, vii°, VIII (I/Maj)
                 triadQualities: ["Maj", "min", "min", "Maj", "Maj", "min", "dim", "Maj"], 
                 qualities: ["I", "ii", "iii", "IV", "V", "vi", "vii°", "VIII (I)"], 
                 chordSteps: [0, 2, 4], 
@@ -183,7 +155,6 @@
                 name: 'Aeolian (Natural Minor)',
                 intervals: [0, 2, 3, 5, 7, 8, 10],
                 steps: ["W", "H", "W", "W", "H", "W", "W"],
-                // Degrees: i, ii°, III, iv, v, VI, VII (Maj), viii (i/min)
                 triadQualities: ["min", "dim", "Maj", "min", "min", "Maj", "Maj", "min"],
                 qualities: ["i", "ii°", "III", "iv", "v", "VI", "VII", "viii (i)"],
                 chordSteps: [0, 2, 4],
@@ -194,14 +165,13 @@
                 name: 'Harmonic Minor',
                 intervals: [0, 2, 3, 5, 7, 8, 11], 
                 steps: ["W", "H", "W", "W", "H", "1.5", "H"], 
-                // Degrees: i, ii°, III+, iv, V, VI, vii° (dim), viii (i/min)
                 triadQualities: ["min", "dim", "Aug", "min", "Maj", "Maj", "dim", "min"], 
                 qualities: ["i", "ii°", "III+", "iv", "V", "VI", "vii°", "viii (i)"],
                 chordSteps: [0, 2, 4],
                 degrees: 8, 
                 isDiatonic: true
             },
-            'major_pentatonic': { // Excluded from Chord View
+            'major_pentatonic': {
                 name: 'Major Pentatonic',
                 intervals: [0, 2, 4, 7, 9],
                 steps: ["W", "W", "1.5", "W", "1.5"], 
@@ -209,9 +179,9 @@
                 qualities: ["1", "2", "3", "4", "5"], 
                 chordSteps: [0], 
                 degrees: 5,
-                isDiatonic: false // Key flag for filtering
+                isDiatonic: false
             },
-            'minor_pentatonic': { // Excluded from Chord View
+            'minor_pentatonic': {
                 name: 'Minor Pentatonic',
                 intervals: [0, 3, 5, 7, 10],
                 steps: ["1.5", "W", "W", "1.5", "W"],
@@ -219,7 +189,7 @@
                 qualities: ["1", "2", "3", "4", "5"], 
                 chordSteps: [0],
                 degrees: 5,
-                isDiatonic: false // Key flag for filtering
+                isDiatonic: false
             }
         };
         
@@ -258,7 +228,7 @@
             currentInversion: 0, 
             highlightedPitchClasses: [], 
             highlightedMidiNotes: [], 
-            isCenteringEnabled: true, 
+            isCenteringEnabled: true, // ALWAYS true now
             visualizationMode: 'scale' 
         };
 
@@ -269,9 +239,20 @@
         }
 
         /**
-         * Gets the display name for the current highlight, showing the full chord name or scale degree. (REVERTED)
+         * Gets the simplified name of the current key and mode (e.g., "C Major").
          */
-        function getHighlightName() {
+        function getSimplifiedKeyName() {
+            const rootName = KEYS[state.currentKeyIndex];
+            const modeName = getCurrentMode().name;
+            return `${rootName} - ${modeName}`;
+        }
+
+
+        /**
+         * Calculates the full, detailed name for the selected chord/note, including inversion.
+         * This is used for the display above the keyboard.
+         */
+        function getDetailedHighlightName() {
             const mode = getCurrentMode();
             const intervals = mode.intervals;
             const degree = state.currentDegree;
@@ -281,9 +262,8 @@
             if (degree === 8) {
                 degreeInterval = 12;
             } else {
-                // Adjust interval if the mode has fewer than 7 steps (e.g., pentatonic)
                 if (degree > intervals.length) {
-                    degreeInterval = 0; // Default to root if out of bounds
+                    degreeInterval = 0; 
                 } else {
                     degreeInterval = intervals[degree - 1]; 
                 }
@@ -292,26 +272,24 @@
             const highlightRootIndex = (state.currentKeyIndex + degreeInterval) % 12;
             const highlightRootName = KEYS[highlightRootIndex]; 
             
-            // The degree index for Roman numeral/quality is always 0-based
             const degreeIndex = (degree === 8) ? 0 : degree - 1;
 
-            // Check if we can display full chord context (Chord View, Diatonic, 7-note scale)
             if (state.visualizationMode === 'chord' && mode.isDiatonic && mode.intervals.length === 7) {
-                 // Chord View: Show Root + Quality + Roman Numeral + Inversion
+                // Chord selected: CMaj (I) (Root position)
                 const romanNumeral = mode.qualities[degreeIndex];
                 const quality = mode.triadQualities[degreeIndex];
                 
-                let inversionSuffix = '';
+                let inversionText = 'Root Position';
                 if (state.currentInversion === 1) {
-                    inversionSuffix = ' (1st Inv.)';
+                    inversionText = '1st Inversion / 6';
                 } else if (state.currentInversion === 2) {
-                    inversionSuffix = ' (2nd Inv.)';
+                    inversionText = '2nd Inversion / 6/4';
                 }
 
-                // Example: C Maj (I) (Root Position)
-                return `${highlightRootName} ${quality} (${romanNumeral})${inversionSuffix}`;
+                // Return format: Chord selected: CMaj (I) (Root Position)
+                return `Chord selected: ${highlightRootName}${quality} (${romanNumeral}) (${inversionText})`;
             } else {
-                // Scale View (and non-diatonic/non-7-note scales): Show Note + Ordinal
+                // Note selected: C (1st)
                 let degreeText;
                 if (degree === 1) {
                     degreeText = '1st';
@@ -320,13 +298,13 @@
                 } else if (degree === 3) {
                     degreeText = '3rd';
                 } else if (degree === 8) {
-                    degreeText = 'Octave 8th';
+                    degreeText = 'Octave (8th)';
                 } else {
                     degreeText = `${degree}th`;
                 }
                 
-                // Example: C (1st)
-                return `${highlightRootName} (${degreeText})`;
+                // Return format: Note selected: ${highlightRootName} (${degreeText})
+                return `Note selected: ${highlightRootName} (${degreeText})`;
             }
         }
 
@@ -338,34 +316,25 @@
             const mode = getCurrentMode();
             const scaleIntervals = mode.intervals;
             
-            // Map degree 8 to degree 1 for interval/quality lookup, but set an octave shift
             const octaveShift = (degree === 8) ? 12 : 0;
-            // The degree index for calculating R-3-5 intervals is always 0-6 (relative to the scale)
             const scaleDegreeIndex = (degree === 8) ? 0 : degree - 1; 
             
             const tonicMidiInStartingOctave = 60; 
 
             if (!mode.isDiatonic || mode.intervals.length < 7 || state.visualizationMode === 'scale') {
-                 // For non-diatonic or scale view, fall back to single note calculation
                  return calculateSingleScaleMidiNote(keyIndex, degree);
             }
             
-            // 1. Determine the component scale degrees (0-based) for the chord (R, 3rd, 5th)
-            const stepsInChord = mode.chordSteps; // [0, 2, 4] for R, 3, 5
-            
-            // 2. Calculate the base MIDI notes (Root Position, all relative to the chord's root)
+            const stepsInChord = mode.chordSteps; 
             
             const rootIntervalFromTonic = scaleIntervals[scaleDegreeIndex];
             const lowestRootMidi = tonicMidiInStartingOctave + keyIndex + rootIntervalFromTonic;
             
-            // Determine the indexes of the 3rd and 5th within the scale (must use 7 as the modulus)
-            const scaleLength = mode.intervals.length; // This is 7 for 7-note scales
+            const scaleLength = mode.intervals.length; 
             
             const thirdIndex = (scaleDegreeIndex + stepsInChord[1]) % scaleLength;
             const fifthIndex = (scaleDegreeIndex + stepsInChord[2]) % scaleLength;
 
-            // Calculate semitone offsets relative to the chord's root (lowestRootMidi)
-            
             let semitoneOffsetThird = scaleIntervals[thirdIndex] - scaleIntervals[scaleDegreeIndex];
             if (semitoneOffsetThird < 0) semitoneOffsetThird += 12; 
             
@@ -378,13 +347,11 @@
                 lowestRootMidi + semitoneOffsetFifth  
             ];
             
-            // Apply the octave shift (12 semitones) if degree 8 was selected
             if (octaveShift === 12) {
                 chordComponents = chordComponents.map(midi => midi + 12);
             }
 
-            // 3. Apply Inversion (Mutate chordComponents)
-            // Inversions are only allowed for degrees 1-7.
+            // Apply Inversion
             if (degree <= 7) {
                 for (let i = 0; i < inversion; i++) {
                     const lowestNote = chordComponents.shift(); 
@@ -392,7 +359,6 @@
                 }
             }
             
-            // 4. Filter to the visible keyboard range
             return chordComponents.filter(midi => midi >= START_MIDI && midi <= END_MIDI);
         }
 
@@ -402,14 +368,12 @@
         function calculateSingleScaleMidiNote(keyIndex, degree) {
             const scaleIntervals = getCurrentMode().intervals;
             
-            // The 8th degree is the octave (interval 12)
             let intervalOffset;
             if (degree === 8) {
                 intervalOffset = 12;
             } else {
-                // Adjust interval if the mode has fewer than 7 steps (e.g., pentatonic)
                 if (degree > scaleIntervals.length) {
-                    intervalOffset = scaleIntervals[0]; // Fallback to root if out of bounds
+                    intervalOffset = scaleIntervals[0]; 
                 } else {
                     intervalOffset = scaleIntervals[degree - 1];
                 }
@@ -476,10 +440,8 @@
         function renderStepVisualizer() {
             const track = document.getElementById('step-visualizer-track');
             
-            // Always clear the track first
             track.innerHTML = ''; 
 
-            // Only proceed with drawing if we are in Scale View
             if (state.visualizationMode === 'chord') {
                 return;
             }
@@ -488,40 +450,29 @@
             const scaleSteps = mode.steps;
             const scaleIntervals = mode.intervals;
             
-            // The MIDI of the tonic in the starting octave (C4 + Key Offset)
             const referenceMidi = START_MIDI + state.currentKeyIndex;
 
-            // Iterate through the steps 
             for (let i = 0; i < scaleSteps.length; i++) { 
                 const step = scaleSteps[i];
                 
-                // 1. Get MIDI of the current note (Start of the step)
                 const currentNoteMidi = referenceMidi + scaleIntervals[i];
 
-                // 2. Calculate MIDI of the next note (End of the step)
                 let stepInSemitones;
-                
                 if (i === scaleSteps.length - 1) {
-                    // Last step wraps to the octave above the tonic
                     stepInSemitones = 12 - scaleIntervals[i];
                 } else {
-                    // Normal step to the next scale interval
                     stepInSemitones = scaleIntervals[i + 1] - scaleIntervals[i];
                 }
 
-                // If stepInSemitones is 0 or less, skip drawing (shouldn't happen with correct data)
                 if (stepInSemitones <= 0) continue; 
 
                 const nextNoteMidi = currentNoteMidi + stepInSemitones;
 
-                // 3. Get X positions of the centers
                 const x1 = getKeyCenterX(currentNoteMidi);
                 const x2 = getKeyCenterX(nextNoteMidi);
 
-                // 4. Calculate midpoint for placement
                 const centerX = (x1 + x2) / 2;
                 
-                // 5. Determine styling and label
                 let stepColorClass;
                 let tooltipText;
                 let stepLabel;
@@ -537,19 +488,17 @@
                 } else if (step === '1.5') { 
                     stepColorClass = 'bg-purple-600'; 
                     tooltipText = 'Augmented Step (1.5)';
-                    stepLabel = 'A'; // Use 'A' for augmented step for size
+                    stepLabel = 'A'; 
                 } else {
                     continue; 
                 }
                 
-                // 6. Create the indicator element
                 const indicator = document.createElement('div');
                 indicator.className = `absolute top-0 transform -translate-x-1/2 step-indicator transition-all duration-300 shadow-md 
                                         w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold 
                                         ${stepColorClass}
                                         group cursor-help hover:scale-125`;
                 
-                // Add tooltip
                 indicator.innerHTML = `
                     ${stepLabel}
                     <span class="absolute top-full mt-1 px-2 py-0.5 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
@@ -557,7 +506,6 @@
                     </span>
                 `;
                 
-                // Set position.
                 indicator.style.left = `${centerX}px`; 
                 
                 track.appendChild(indicator);
@@ -605,6 +553,7 @@
                     if (isHighlighted) {
                          labelText = key.name;
                     } else if (key.name === 'C' || key.name === 'F') {
+                        // Label C4, F4, C5, F5, etc.
                         labelText = `${key.name}${Math.floor(key.midi / 12) - 1}`;
                     }
 
@@ -660,12 +609,18 @@
             
             const pianoContainer = document.getElementById('piano-container');
             
-            // --- CONDITIONAL SCROLLING LOGIC ---
-            if (state.isCenteringEnabled && state.highlightedMidiNotes.length > 0) {
-                // Centering mode: scroll to center the lowest note of the chord/scale degree
-                const centerMidi = state.highlightedMidiNotes[0]; 
+            // --- SCROLLING LOGIC (ALWAYS CENTERING) ---
+            
+            if (state.highlightedMidiNotes.length > 0) {
+                // Determine the MIDI note to center on:
+                // If there are exactly 3 notes (a standard triad, in any inversion), center on the middle note (index 1 / the 3rd).
+                // Otherwise (Scale View, pentatonic chords, or small selection), center on the first note (index 0).
+                let centerMidi = state.highlightedMidiNotes[0];
+
+                if (state.highlightedMidiNotes.length === 3) {
+                    centerMidi = state.highlightedMidiNotes[1]; // Index 1 is the middle note (the 3rd) of a 3-note chord
+                }
                 
-                let centerScrollX = 0;
                 const centerKeyData = PIANO_KEY_DATA.find(k => k.midi === centerMidi);
                 
                 if (centerKeyData) {
@@ -675,21 +630,19 @@
                     const containerWidth = pianoContainer.offsetWidth;
                     
                     const keyWidth = centerKeyData.isWhite ? WKW : BKW;
-                    centerScrollX = centerKeyX - (containerWidth / 2) + (keyWidth / 2);
+                    
+                    // Calculate the scroll position needed to center the key
+                    let centerScrollX = centerKeyX - (containerWidth / 2) + (keyWidth / 2);
 
                     centerScrollX = Math.max(0, centerScrollX);
+                    // Prevent scrolling past the end
                     centerScrollX = Math.min(KEYBOARD_CONFIG.KEYBOARD_WIDTH - containerWidth, centerScrollX);
-                }
                 
-                requestAnimationFrame(() => {
-                    // Smoothly scroll to the center position
-                    pianoContainer.scroll({ left: centerScrollX, behavior: 'smooth' });
-                });
-            } else {
-                // Fixed scroll mode: scroll to the far left (C4)
-                requestAnimationFrame(() => {
-                    pianoContainer.scrollLeft = 0;
-                });
+                    requestAnimationFrame(() => {
+                        // Smoothly scroll to the center position
+                        pianoContainer.scroll({ left: centerScrollX, behavior: 'smooth' });
+                    });
+                }
             }
         }
         
@@ -719,30 +672,42 @@
                 const currentModeExists = modesToRender.some(([id]) => id === state.currentModeId);
                 if (!currentModeExists) {
                      state.currentModeId = 'major';
-                     state.currentDegree = 1; // Reset degree as well since pentatonic has only 5
+                     state.currentDegree = 1; 
                 }
             }
-            // If we are in 'scale' view, modesToRender is the full list.
             
             select.innerHTML = modesToRender.map(([id, mode]) => 
                 `<option value="${id}" ${id === state.currentModeId ? 'selected' : ''}>${mode.name}</option>`
             ).join('');
         }
         
+        /**
+         * Updates the Chord View and Scale View buttons with Tailwind classes for blue active state.
+         */
         function renderVisualizationModeButtons() {
-            const container = document.getElementById('mode-toggle-container');
             const isChord = state.visualizationMode === 'chord';
+            
+            const chordBtn = document.getElementById('mode-chord-btn');
+            const scaleBtn = document.getElementById('mode-scale-btn');
 
-            container.innerHTML = `
-                <button id="mode-chord-btn" onclick="handleVisualizationModeChange('chord')"
-                        class="segmented-btn py-2.5 px-3 w-1/2 text-sm md:text-base ${isChord ? 'active' : 'bg-white text-gray-700 hover:bg-gray-50'}">
-                    Chord View
-                </button>
-                <button id="mode-scale-btn" onclick="handleVisualizationModeChange('scale')"
-                        class="segmented-btn py-2.5 px-3 w-1/2 text-sm md:text-base ${!isChord ? 'active' : 'bg-white text-gray-700 hover:bg-gray-50'}">
-                    Scale View
-                </button>
-            `;
+            // Classes for the ACTIVE (blue) state
+            const activeClasses = ['bg-blue-600', 'text-white', 'shadow-lg', 'ring-2', 'ring-blue-300', 'border-blue-600'];
+            
+            // Classes for the INACTIVE (gray/white) state
+            const inactiveClasses = ['bg-white', 'text-gray-700', 'hover:bg-gray-200', 'border-gray-300', 'shadow-sm'];
+
+            const updateButton = (btn, isActive) => {
+                if (!btn) return;
+                
+                // Toggle active classes
+                activeClasses.forEach(cls => btn.classList.toggle(cls, isActive));
+                
+                // Toggle inactive classes
+                inactiveClasses.forEach(cls => btn.classList.toggle(cls, !isActive));
+            };
+
+            updateButton(chordBtn, isChord);
+            updateButton(scaleBtn, !isChord);
         }
 
         function renderChordButtons() {
@@ -751,15 +716,13 @@
             const qualities = mode.qualities;
             const triadQualities = mode.triadQualities;
             
-            const numDegrees = mode.degrees; // Now 8 for diatonic scales
+            const numDegrees = mode.degrees; 
             const isScaleView = state.visualizationMode === 'scale';
             
-            // Inversions are only possible for 7-note diatonic scales in Chord View, AND not for the 8th degree
             const canInvert = mode.isDiatonic && mode.intervals.length === 7 && state.visualizationMode === 'chord' && state.currentDegree !== 8;
 
-
-            // Use grid-cols-8 for 8 degrees when on large screens
-            container.classList.remove('sm:grid-cols-7', 'sm:grid-cols-5');
+            // Adjust grid layout dynamically
+            container.classList.remove('sm:grid-cols-7', 'sm:grid-cols-5', 'sm:grid-cols-8');
             container.classList.add(numDegrees === 8 ? 'sm:grid-cols-8' : 'sm:grid-cols-5');
 
 
@@ -767,7 +730,6 @@
                 const degree = index + 1;
                 const isActive = degree === state.currentDegree;
                 
-                // Use the direct index (0-7) for lookup
                 const qualityIndex = index; 
 
                 let inversionSuffix = '';
@@ -781,11 +743,10 @@
                 } else {
                     // CHORD VIEW: Use Roman numeral and chord quality/inversion
                     mainButtonText = romanNumeral;
-                    // Only show quality for 7-note diatonic scales in Chord View
                     qualityDisplay = mode.isDiatonic && mode.intervals.length === 7 ? triadQualities[qualityIndex] : '';
                     
-                    // Show inversion suffix only if on degrees 1-7
                     if (isActive && degree <= 7 && canInvert && state.currentInversion > 0) {
+                         // Use common figured bass shorthand for display on the buttons
                          inversionSuffix = state.currentInversion === 1 ? ' / 6' : ' / 6/4';
                     }
                     secondaryButtonText = `${qualityDisplay}${inversionSuffix}`;
@@ -807,31 +768,41 @@
             }).join('');
         }
 
-        function renderChordName() {
-            document.getElementById('current-chord-display').textContent = getHighlightName();
+        /**
+         * Renders the simplified key/mode name for the large display above the controls.
+         */
+        function renderKeyName() {
+            document.getElementById('current-key-display').textContent = getSimplifiedKeyName();
+        }
+
+        /**
+         * Renders the detailed highlight name for the smaller display above the keyboard.
+         */
+        function renderDetailedHighlight() {
+            document.getElementById('detailed-highlight-display').textContent = getDetailedHighlightName();
         }
         
         // --- HANDLERS ---
         
         function updateUI() {
-            // Check if the currently selected mode is still valid for the current visualization mode. 
-            // This is handled in renderModeSelect now, which can change state.currentModeId.
+            // Renders mode select and handles scale filtering/resetting state.currentModeId if needed
             renderModeSelect(); 
 
             const mode = getCurrentMode();
             
-            // If we move to a scale with fewer degrees (e.g., from Major to Pentatonic)
+            // Check for degree bounds
             if (state.currentDegree > mode.degrees) {
                 state.currentDegree = 1;
             }
             
-            // Inversions are only possible for 7-note diatonic scales in Chord View, AND not for the 8th degree
+            // Check for inversion validity
             const canInvert = mode.isDiatonic && mode.intervals.length === 7 && state.visualizationMode === 'chord' && state.currentDegree !== 8;
             
             if (!canInvert) {
                 state.currentInversion = 0;
             }
 
+            // Calculate new highlights
             if (state.visualizationMode === 'chord') {
                 state.highlightedMidiNotes = calculateChordMidiNotes(
                     state.currentKeyIndex, 
@@ -847,12 +818,13 @@
             
             state.highlightedPitchClasses = state.highlightedMidiNotes.map(midi => midi % 12);
             
+            // Render UI components
             renderKeySelect();
-            // renderModeSelect() is called first in updateUI()
             renderChordButtons();
-            renderChordName(); 
+            renderKeyName(); // Renders the simplified key/mode at the top
+            renderDetailedHighlight(); // Renders the detailed chord/degree name above the keyboard
             renderStepVisualizer(); 
-            renderVisualizationModeButtons(); 
+            renderVisualizationModeButtons(); // Updates button active states
             drawKeyboard(); 
         }
 
@@ -873,12 +845,11 @@
         function handleDegreeChange(degree) {
             const mode = getCurrentMode();
             
-            // Inversions are only possible for 7-note diatonic scales in Chord View, AND not for the 8th degree
             const canInvert = mode.isDiatonic && mode.intervals.length === 7 && state.visualizationMode === 'chord' && degree !== 8;
 
             if (degree === state.currentDegree) {
                 if (canInvert) {
-                    // Cycle the inversion: 0 (Root) -> 1 (1st) -> 2 (2nd) -> 0 (Root)
+                    // Cycle inversion if already selected
                     state.currentInversion = (state.currentInversion + 1) % 3; 
                 } else {
                     state.currentInversion = 0;
@@ -896,11 +867,6 @@
             updateUI();
         }
         
-        function toggleCentering(checked) {
-            state.isCenteringEnabled = checked;
-            drawKeyboard();
-        }
-
         // --- PWA Registration (Existing functionality) ---
         function registerPwa() {
             const manifestContent = {
@@ -946,3 +912,4 @@
     </script>
 </body>
 </html>
+
