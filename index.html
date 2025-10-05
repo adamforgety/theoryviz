@@ -118,7 +118,7 @@
         
         <!-- ENHANCED INVERSION INTERACTION TIP -->
         <div class="mt-4 mb-6 py-3 px-4 bg-yellow-100 border-2 border-yellow-400 text-yellow-800 text-sm rounded-lg text-center font-bold shadow-md">
-            Click the <span class="text-blue-700 font-extrabold">ACTIVE</span> Roman numeral to cycle **INVERSIONS** (Root, 1st, 2nd) in Chord View.
+            Click the <span class="text-blue-700 font-extrabold">ACTIVE</span> Roman numeral to cycle <span class="text-indigo-700">INVERSIONS</span> (Root, 1st, 2nd) in Chord View.
         </div>
 
         <!-- Chord Buttons (Scale Degree Selector) -->
@@ -613,35 +613,34 @@
             
             const pianoContainer = document.getElementById('piano-container');
             
-            // --- SCROLLING LOGIC (ALWAYS CENTERING) ---
+            // --- UPDATED SCROLLING LOGIC: Center the entire span of the chord ---
             
             if (state.highlightedMidiNotes.length > 0) {
-                // Determine the MIDI note to center on:
-                // If there are exactly 3 notes (a standard triad, in any inversion), center on the middle note (index 1 / the 3rd).
-                // Otherwise (Scale View, pentatonic chords, or small selection), center on the first note (index 0).
-                let centerMidi = state.highlightedMidiNotes[0];
+                const firstMidi = state.highlightedMidiNotes[0];
+                const lastMidi = state.highlightedMidiNotes[state.highlightedMidiNotes.length - 1];
 
-                if (state.highlightedMidiNotes.length === 3) {
-                    centerMidi = state.highlightedMidiNotes[1]; // Index 1 is the middle note (the 3rd) of a 3-note chord
-                }
+                // Find the X position of the leftmost edge of the first key
+                const startKeyX = getKeyXPosition(firstMidi);
+
+                // Find the X position of the rightmost edge of the last key
+                const lastKeyData = PIANO_KEY_DATA.find(k => k.midi === lastMidi);
                 
-                const centerKeyData = PIANO_KEY_DATA.find(k => k.midi === centerMidi);
-                
-                if (centerKeyData) {
-                    const WKW = KEYBOARD_CONFIG.WHITE_KEY_WIDTH;
-                    const BKW = KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
-                    const centerKeyX = getKeyXPosition(centerKeyData.midi);
+                if (lastKeyData) {
+                    const lastKeyWidth = lastKeyData.isWhite ? KEYBOARD_CONFIG.WHITE_KEY_WIDTH : KEYBOARD_CONFIG.BLACK_KEY_WIDTH;
+                    const endKeyX = getKeyXPosition(lastMidi) + lastKeyWidth;
+
+                    // Calculate the center of the total visual span
+                    const spanCenter = (startKeyX + endKeyX) / 2;
+                    
                     const containerWidth = pianoContainer.offsetWidth;
-                    
-                    const keyWidth = centerKeyData.isWhite ? WKW : BKW;
-                    
-                    // Calculate the scroll position needed to center the key
-                    let centerScrollX = centerKeyX - (containerWidth / 2) + (keyWidth / 2);
 
+                    // Calculate the scroll position needed to center the span's midpoint.
+                    let centerScrollX = spanCenter - (containerWidth / 2);
+
+                    // Clamp the scroll position to prevent scrolling out of bounds
                     centerScrollX = Math.max(0, centerScrollX);
-                    // Prevent scrolling past the end
                     centerScrollX = Math.min(KEYBOARD_CONFIG.KEYBOARD_WIDTH - containerWidth, centerScrollX);
-                
+
                     requestAnimationFrame(() => {
                         // Smoothly scroll to the center position
                         pianoContainer.scroll({ left: centerScrollX, behavior: 'smooth' });
